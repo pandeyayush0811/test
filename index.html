@@ -509,6 +509,16 @@
       margin-bottom: 16px;
     }
 
+    .modal-label {
+      display: block;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--ink-dim);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
     .modal-input {
       width: 100%;
       background: var(--panel-2);
@@ -632,17 +642,43 @@
     </footer>
   </div>
 
-  <!-- Settings / API Key Modal -->
+  <!-- Settings / API Key & Voice Selection Modal -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-card">
-      <h3>Gemini API Key</h3>
-      <p>Enter your Google Gemini API Key for on-device conversational testing.</p>
+      <h3>Voice &amp; AI Settings</h3>
+      <p>Choose your AI Coach neural voice and configure your Gemini API Key.</p>
+      
       <div class="modal-input-wrap">
+        <label class="modal-label" for="modalVoiceSelect">Coach Voice (Microsoft Edge Neural)</label>
+        <select id="modalVoiceSelect" class="modal-input">
+          <option value="en-IN-NeerjaNeural">🇮🇳 Neerja (Indian English - Female)</option>
+          <option value="hi-IN-SwaraNeural">🇮🇳 Swara (Hindi / Hinglish - Female)</option>
+          <option value="en-IN-PrabhatNeural">🇮🇳 Prabhat (Indian English - Male)</option>
+          <option value="hi-IN-MadhurNeural">🇮🇳 Madhur (Hindi / Hinglish - Male)</option>
+          <option value="en-US-JennyNeural">🇺🇸 Jenny (US English - Female)</option>
+          <option value="en-US-GuyNeural">🇺🇸 Guy (US English - Male)</option>
+          <option value="en-GB-SoniaNeural">🇬🇧 Sonia (British English - Female)</option>
+        </select>
+      </div>
+
+      <div class="modal-input-wrap">
+        <label class="modal-label" for="modalRateSelect">Speaking Speed</label>
+        <select id="modalRateSelect" class="modal-input">
+          <option value="+0%">1.0x (Normal)</option>
+          <option value="+15%">1.15x (Conversational)</option>
+          <option value="+35%" selected>1.35x (Snappy / Fast)</option>
+          <option value="+50%">1.5x (Super Fast)</option>
+        </select>
+      </div>
+
+      <div class="modal-input-wrap">
+        <label class="modal-label" for="modalKeyInput">Gemini API Key</label>
         <input type="password" id="modalKeyInput" class="modal-input" placeholder="AIzaSy...">
       </div>
+      
       <div class="modal-actions">
         <button class="modal-btn secondary" id="modalCloseBtn">Cancel</button>
-        <button class="modal-btn primary" id="modalSaveBtn">Save Key</button>
+        <button class="modal-btn primary" id="modalSaveBtn">Save Settings</button>
       </div>
     </div>
   </div>
@@ -677,6 +713,8 @@ CRITICAL SPOKEN AUDIO RULES:
     const settingsBtn = document.getElementById('settingsBtn');
     const settingsModal = document.getElementById('settingsModal');
     const modalKeyInput = document.getElementById('modalKeyInput');
+    const modalVoiceSelect = document.getElementById('modalVoiceSelect');
+    const modalRateSelect = document.getElementById('modalRateSelect');
     const modalSaveBtn = document.getElementById('modalSaveBtn');
     const modalCloseBtn = document.getElementById('modalCloseBtn');
 
@@ -685,6 +723,8 @@ CRITICAL SPOKEN AUDIO RULES:
       return typeof window.UtkioNativeBridge !== 'undefined' ? window.UtkioNativeBridge : null;
     }
     let apiKey = localStorage.getItem('utkio_gemini_api_key') || '';
+    let selectedVoice = localStorage.getItem('utkio_edge_voice') || 'en-IN-NeerjaNeural';
+    let selectedRate = localStorage.getItem('utkio_edge_rate') || '+35%';
     let state = 'IDLE'; // IDLE | LISTENING | THINKING | SPEAKING
     let conversationHistory = [];
     let activeAbortController = null;
@@ -881,8 +921,16 @@ CRITICAL SPOKEN AUDIO RULES:
       modalSaveBtn.addEventListener('click', () => {
         apiKey = modalKeyInput.value.trim();
         localStorage.setItem('utkio_gemini_api_key', apiKey);
+        if (modalVoiceSelect) {
+          selectedVoice = modalVoiceSelect.value;
+          localStorage.setItem('utkio_edge_voice', selectedVoice);
+        }
+        if (modalRateSelect) {
+          selectedRate = modalRateSelect.value;
+          localStorage.setItem('utkio_edge_rate', selectedRate);
+        }
         closeSettingsModal();
-        statusText.textContent = 'API Key saved. Tap mic to talk.';
+        statusText.textContent = 'Settings saved. Tap mic to talk.';
       });
 
       newChatBtn.addEventListener('click', resetSession);
@@ -901,6 +949,8 @@ CRITICAL SPOKEN AUDIO RULES:
 
     function openSettingsModal() {
       modalKeyInput.value = apiKey;
+      if (modalVoiceSelect) modalVoiceSelect.value = selectedVoice;
+      if (modalRateSelect) modalRateSelect.value = selectedRate;
       settingsModal.classList.add('open');
       modalKeyInput.focus();
     }
@@ -1372,8 +1422,8 @@ CRITICAL SPOKEN AUDIO RULES:
       const currentUtteranceId = 'utt_' + utteranceCounter;
 
       try {
-        // 1. Primary Studio Human Neural Voice: en-IN-NeerjaNeural @ 1.35x speed
-        const audioUrl = await generateEdgeTTSAudio(text, 'en-IN-NeerjaNeural', '+35%');
+        // 1. Primary Studio Human Neural Voice: User-Selected Edge Voice & Rate
+        const audioUrl = await generateEdgeTTSAudio(text, selectedVoice, selectedRate);
         if (!isSpeakingQueue) return; // Barge-in interruption occurred
 
         const audio = new Audio(audioUrl);
