@@ -80,8 +80,11 @@ flowchart TD
   - `temperature`: 0.7 (Balances natural empathy with strict fluency modeling).
 - **Time to First Token (TTFT):** **100ms – 140ms**.
 
-### 3.4 Voice Output Layer: Sentence-Pipelined Android TTS
+### 3.4 Voice Output Layer: Sentence-Pipelined Android TTS (Hinglish Audio Calibration)
 - **Technology:** Android `TextToSpeech` (`android.speech.tts.TextToSpeech`) configured with `Locale("en", "IN")`.
+- **Hinglish Audio Dialogue:**
+  - Spoken voice output is calibrated for natural Indian **Hinglish**: blending relatable Hindi colloquial phrases (*"Arre bilkul", "Haan dekho", "Don't worry yaar", "Matlab", "Aap batao"*) with clear, correct English phrasing.
+  - Generates an encouraging, empathetic Indian peer-coach persona instead of a rigid, robotic classroom instructor.
 - **Speed Tuning:** **1.35x speed** with **1.05x pitch** (ensures snappy, energetic conversational pacing without sounding rushed).
 - **Pipelining Mechanics:**
   - As Gemini streams response tokens, text is buffered until punctuation (`.`, `!`, `?`, `\n`) is encountered.

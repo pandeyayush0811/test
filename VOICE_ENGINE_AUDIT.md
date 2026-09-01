@@ -64,8 +64,11 @@
 
 ---
 
-### 2.4 Voice Output Layer: Sentence-Pipelined Native TTS
-- **Engine:** Android `TextToSpeech` (`android.speech.tts.TextToSpeech`) with `en_IN` voice.
+### 2.4 Voice Output Layer: Sentence-Pipelined Native TTS (Hinglish Audio Calibration)
+- **Engine:** Android `TextToSpeech` (`android.speech.tts.TextToSpeech`) configured with `Locale("en", "IN")` for multilingual Indian phonetic synthesis.
+- **Hinglish Spoken Dialogue Architecture:**
+  - Utkio's audio output is explicitly designed to speak in natural **Hinglish**: seamlessly blending comforting Hindi conversational cues (*"Arre bilkul", "Haan dekho", "Don't worry yaar", "Matlab", "Aap batao"*) with fluent, accurate English.
+  - This prevents the coach from sounding like a cold academic teacher and creates an empathetic, encouraging Indian peer-coach persona.
 - **Speed & Pitch Tuning:**
   - `speechRate`: **1.35x**
   - `pitch`: **1.05x**
