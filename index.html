@@ -1,0 +1,3042 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Utkio Lab — Hybrid Voice & Model Testing Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0c0e14;
+      --bg-card: rgba(22, 27, 38, 0.85);
+      --bg-surface: #1e2433;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(99, 102, 241, 0.25);
+
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-light: #818cf8;
+      --primary-glow: rgba(99, 102, 241, 0.35);
+
+      --accent-orange: #ff7849;
+      --accent-orange-soft: rgba(255, 120, 73, 0.15);
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-cyan: #06b6d4;
+
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --text-muted: #64748b;
+
+      --user-bubble-bg: linear-gradient(135deg, #4f46e5, #6366f1);
+      --ai-bubble-bg: #1c2230;
+
+      --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-heading: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+
+      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
+      --shadow-lg: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(255, 120, 73, 0.08) 0%, transparent 40%);
+      background-attachment: fixed;
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: rgba(12, 14, 20, 0.9);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-badge {
+      background: linear-gradient(135deg, var(--accent-orange), #ea580c);
+      color: #fff;
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      box-shadow: 0 2px 8px rgba(234, 88, 12, 0.4);
+    }
+
+    .brand-text h1 {
+      font-family: var(--font-heading);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .brand-text p {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cost-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 0.82rem;
+      color: #a7f3d0;
+    }
+
+    .cost-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 10px var(--accent-green);
+      animation: pulse-green 2s infinite;
+    }
+
+    @keyframes pulse-green {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.5;
+        transform: scale(0.85);
+      }
+    }
+
+    .main-layout {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      gap: 20px;
+      padding: 16px 24px;
+    }
+
+    .sidebar-panel {
+      width: 380px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .sidebar-panel::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .sidebar-panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .card-header h3 {
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .status-pill {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: var(--radius-full);
+    }
+
+    .status-missing {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .status-ready {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .flex-1 {
+      flex: 1;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select,
+    textarea {
+      width: 100%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.85rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .input-with-action {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .icon-toggle-btn {
+      position: absolute;
+      right: 8px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+
+    .field-hint {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .scenario-chips {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text-dim);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      text-align: left;
+    }
+
+    .chip:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+    }
+
+    .chip.active {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--primary);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .chip-icon {
+      font-size: 1.05rem;
+    }
+
+    .prompt-details {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      margin-top: 8px;
+    }
+
+    .prompt-details summary {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      cursor: pointer;
+    }
+
+    .prompt-editor-wrap {
+      margin-top: 10px;
+    }
+
+    .prompt-editor-wrap textarea {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      line-height: 1.4;
+      resize: vertical;
+    }
+
+    .btn-link {
+      background: none;
+      border: none;
+      color: var(--primary-light);
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 4px 0;
+      text-decoration: underline;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .metric-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 4px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .metric-label {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .metric-val.highlight {
+      color: var(--accent-orange);
+    }
+
+    /* Latency Calculator Banner & Timeline */
+    .rtt-hero-banner {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+
+    .rtt-title {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .rtt-value-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .rtt-value {
+      font-family: var(--font-mono);
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--accent-green);
+    }
+
+    .rtt-badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .rtt-badge.fast {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+    }
+
+    .rtt-badge.moderate {
+      background: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .timeline-bar-wrap {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+    }
+
+    .timeline-bar-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .timeline-bar {
+      display: flex;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.05);
+      margin-bottom: 6px;
+    }
+
+    .t-seg {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .t-llm {
+      background: #06b6d4;
+    }
+
+    .t-tts {
+      background: #10b981;
+    }
+
+    .timeline-legend {
+      display: flex;
+      gap: 12px;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+    }
+
+    .leg-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot-llm {
+      background: #06b6d4;
+    }
+
+    .dot-tts {
+      background: #10b981;
+    }
+
+    .session-stats-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .stat-pill {
+      flex: 1;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 8px;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    .stat-pill strong {
+      color: var(--text-main);
+      font-family: var(--font-mono);
+    }
+
+    .msg-latency-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--accent-green);
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-left: 6px;
+    }
+
+    .action-buttons-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      outline: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .btn-accent {
+      background: linear-gradient(135deg, var(--accent-orange), #ea580c);
+      color: #fff;
+    }
+
+    .btn-accent:hover:not(:disabled) {
+      opacity: 0.95;
+      box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);
+    }
+
+    .btn-accent:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--primary-light);
+      border: 1px solid var(--primary);
+    }
+
+    .btn-outline:hover {
+      background: var(--primary-glow);
+    }
+
+    .full-width {
+      width: 100%;
+    }
+
+    .chat-arena {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .live-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: rgba(18, 22, 32, 0.7);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .session-state {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .state-orb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: all 0.3s;
+    }
+
+    .state-orb.listening {
+      background: var(--accent-orange);
+      box-shadow: 0 0 16px var(--accent-orange);
+      animation: pulse-ring 1.5s infinite;
+    }
+
+    .state-orb.thinking {
+      background: var(--accent-cyan);
+      box-shadow: 0 0 16px var(--accent-cyan);
+      animation: pulse-ring 1s infinite;
+    }
+
+    .state-orb.speaking {
+      background: var(--accent-green);
+      box-shadow: 0 0 16px var(--accent-green);
+      animation: pulse-ring 1.2s infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        transform: scale(0.95);
+        opacity: 0.8;
+      }
+
+      50% {
+        transform: scale(1.25);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(0.95);
+        opacity: 0.8;
+      }
+    }
+
+    .state-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .state-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .state-desc {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .chat-viewport {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+
+    .chat-viewport::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-viewport::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+    }
+
+    .welcome-banner {
+      margin: auto;
+      max-width: 620px;
+      text-align: center;
+      padding: 30px 20px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-lg);
+    }
+
+    .welcome-icon {
+      font-size: 2.8rem;
+      margin-bottom: 12px;
+    }
+
+    .welcome-banner h2 {
+      font-family: var(--font-heading);
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .welcome-banner p {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    .instructions-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      text-align: left;
+    }
+
+    .step-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    .step-card .num {
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--primary-light);
+      margin-bottom: 4px;
+    }
+
+    .messages-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .message-row {
+      display: flex;
+      gap: 12px;
+      max-width: 82%;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message-row.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .message-row.ai {
+      align-self: flex-start;
+    }
+
+    .msg-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .message-row.user .msg-avatar {
+      background: linear-gradient(135deg, var(--accent-orange), #ea580c);
+    }
+
+    .message-row.ai .msg-avatar {
+      background: linear-gradient(135deg, var(--primary), #4f46e5);
+    }
+
+    .msg-bubble-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .message-row.user .msg-bubble-wrap {
+      align-items: flex-end;
+    }
+
+    .msg-bubble {
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      font-size: 0.9rem;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+
+    .message-row.user .msg-bubble {
+      background: var(--user-bubble-bg);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
+    }
+
+    .message-row.ai .msg-bubble {
+      background: var(--ai-bubble-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg-meta {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .msg-tag {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .interaction-dock {
+      padding: 16px 20px;
+      background: rgba(14, 17, 26, 0.95);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .interim-capsule {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 120, 73, 0.12);
+      border: 1px solid rgba(255, 120, 73, 0.3);
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 0.8rem;
+      color: #fdba74;
+      align-self: center;
+    }
+
+    .wave-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-orange);
+      animation: pulse-ring 1s infinite;
+    }
+
+    .dock-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .mic-trigger-btn {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(135deg, #1f293d, #161c28);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      padding: 8px 20px 8px 12px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: all 0.25s;
+      outline: none;
+      flex-shrink: 0;
+    }
+
+    .mic-trigger-btn:hover {
+      background: linear-gradient(135deg, #28354f, #1b2333);
+      border-color: var(--primary-light);
+      transform: translateY(-1px);
+    }
+
+    .mic-icon-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .mic-btn-label {
+      font-family: var(--font-heading);
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .mic-trigger-btn.active {
+      border-color: var(--accent-orange);
+      background: rgba(255, 120, 73, 0.15);
+    }
+
+    .mic-trigger-btn.active .mic-icon-wrap {
+      background: var(--accent-orange);
+      box-shadow: 0 0 20px rgba(255, 120, 73, 0.6);
+      animation: pulse-mic 1.2s infinite;
+    }
+
+    .mic-trigger-btn.active .mic-btn-label {
+      color: #fdba74;
+    }
+
+    @keyframes pulse-mic {
+      0% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.12);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    .text-input-wrap {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .text-input-wrap input {
+      padding-right: 42px;
+      height: 44px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-full);
+    }
+
+    .send-btn {
+      position: absolute;
+      right: 6px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: none;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .send-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    .stop-tts-btn {
+      height: 44px;
+      border-radius: var(--radius-full);
+      padding: 0 16px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-card {
+      background: #151923;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 720px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .modal-icon {
+      font-size: 1.5rem;
+    }
+
+    .modal-title-group h3 {
+      font-family: var(--font-heading);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .modal-title-group p {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.6rem;
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .loading-spinner-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 0;
+      gap: 16px;
+      color: var(--text-dim);
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .report-content {
+      font-size: 0.92rem;
+      line-height: 1.65;
+      color: #e2e8f0;
+    }
+
+    .report-content h1,
+    .report-content h2,
+    .report-content h3 {
+      font-family: var(--font-heading);
+      color: #fff;
+      margin: 16px 0 8px;
+    }
+
+    .report-content p {
+      margin-bottom: 12px;
+    }
+
+    .report-content ul,
+    .report-content ol {
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+
+    .report-content blockquote {
+      border-left: 3px solid var(--accent-orange);
+      background: rgba(255, 120, 73, 0.08);
+      padding: 8px 12px;
+      margin: 12px 0;
+    }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e2433;
+      color: #fff;
+      border: 1px solid var(--border);
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      z-index: 2000;
+    }
+
+    @media (max-width: 960px) {
+      .main-layout {
+        flex-direction: column;
+        padding: 12px;
+      }
+
+      .sidebar-panel {
+        width: 100%;
+        max-height: 280px;
+      }
+
+      .instructions-steps {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="brand-group">
+        <div class="brand-badge">LAB</div>
+        <div class="brand-text">
+          <h1>Utkio Architecture Lab</h1>
+          <p>Ultra-Low Cost Hybrid Pipeline: Multimodal Direct Mic Audio / STT + Gemini Flash + Native TTS</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="cost-badge" title="Estimated 99.5% reduction vs real-time audio WebSocket">
+          <span class="cost-dot"></span>
+          <span>Target Cost: <strong>₹0.05 / session</strong></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-layout">
+
+      <!-- Left Sidebar: Test Setup & Scenarios -->
+      <aside class="sidebar-panel">
+
+        <!-- API Setup Box -->
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="step-num">1</span> API Setup</h3>
+            <span id="apiStatusBadge" class="status-pill status-missing">Key Needed</span>
+          </div>
+
+          <div class="form-group">
+            <label for="geminiApiKey">Gemini API Key</label>
+            <div class="input-with-action">
+              <input type="password" id="geminiApiKey" placeholder="AIzaSy..." autocomplete="off">
+              <button id="toggleKeyVisibility" class="icon-toggle-btn" title="Show/Hide Key">👁️</button>
+            </div>
+            <p class="field-hint">Stored in browser localStorage only (100% Client-Side).</p>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="modelSelect">Target Model</label>
+              <select id="modelSelect">
+                <option value="gemini-3.1-flash-lite" selected>Gemini 3.1 Flash-Lite (⚡ Fastest / Default)</option>
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Native Audio & Text)</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash (Ultra Stable)</option>
+                <option value="custom">Custom Model Name...</option>
+              </select>
+            </div>
+            <div class="form-group flex-1" id="customModelGroup" style="display:none;">
+              <label for="customModelName">Custom Model</label>
+              <input type="text" id="customModelName" placeholder="e.g. gemini-3.1-flash-lite">
+            </div>
+          </div>
+
+          <!-- Mic Input Mode Selector -->
+          <div class="form-group">
+            <label for="inputModeSelect">Speech Input Engine</label>
+            <select id="inputModeSelect">
+              <option value="webspeech" selected>⚡ Native Device STT (en-IN - 0ms Fast Path)</option>
+              <option value="multimodal">🎙️ Direct Mic Audio (Fallback Mode)</option>
+            </select>
+            <p class="field-hint">Native STT transcribes your voice with 0ms delay for ultra-fast response.</p>
+          </div>
+
+          <!-- Voice Output Engine Selector -->
+          <div class="form-group">
+            <label for="ttsEngineSelect">Voice Output Engine</label>
+            <select id="ttsEngineSelect">
+              <option value="android_native" selected>🔊 Android Native TTS (@ 1.35x Speed / 0ms Lag)</option>
+              <option value="google_indian">🌟 Google Indian Neural Audio (100% Free / Best Hinglish)</option>
+              <option value="gemini_native">🎙️ Gemini Studio Audio (Direct AI Voice - Aoede/Puck)</option>
+              <option value="browser_tts">🔊 Browser Local TTS (Device Voices)</option>
+            </select>
+          </div>
+
+          <!-- Google Indian Accent Selector -->
+          <div class="form-group" id="googleVoiceGroup">
+            <label for="googleVoiceSelect">Google Indian Accent & Language</label>
+            <select id="googleVoiceSelect">
+              <option value="en-IN" selected>en-IN — Indian English & Hinglish (Natural Accent)</option>
+              <option value="hi">hi — Pure Hindi / Hinglish Native</option>
+              <option value="en-GB">en-GB — British English</option>
+              <option value="en-US">en-US — American English</option>
+            </select>
+          </div>
+
+          <!-- AI Voice Persona (When Gemini Native is active) -->
+          <div class="form-group" id="geminiVoiceGroup" style="display:none;">
+            <label for="geminiVoiceSelect">Gemini Voice Persona (Requires Gemini 2.0 Flash)</label>
+            <select id="geminiVoiceSelect">
+              <option value="Aoede" selected>Aoede — Warm Female Coach</option>
+              <option value="Puck">Puck — Energetic Male Coach</option>
+              <option value="Charon">Charon — Calm Male Coach</option>
+              <option value="Kore">Kore — Smooth Female</option>
+              <option value="Fenrir">Fenrir — Professional Male</option>
+            </select>
+          </div>
+
+          <!-- Local Browser Voice Selector (When Browser TTS is active) -->
+          <div class="form-group" id="browserVoiceGroup" style="display:none;">
+            <label for="ttsVoiceSelect">Device TTS Voice</label>
+            <select id="ttsVoiceSelect">
+              <option value="default">Auto-Detecting Voice...</option>
+            </select>
+          </div>
+
+          <!-- Speech Speed Selector -->
+          <div class="form-group">
+            <label for="voiceRateSelect">Speech Speed / Pacing (Natural Pitch)</label>
+            <select id="voiceRateSelect">
+              <option value="1.0">1.0x (Standard)</option>
+              <option value="1.15">1.15x (Conversational)</option>
+              <option value="1.25" selected>1.25x (Fast & Crisp - Recommended)</option>
+              <option value="1.35">1.35x (Ultra Fast)</option>
+            </select>
+          </div>
+
+          <div class="form-row" style="margin-top: 12px; gap: 8px;">
+            <button id="previewVoiceBtn" class="btn btn-outline flex-1">▶️ Preview Sample Voice</button>
+            <button id="testApiBtn" class="btn btn-outline flex-1">⚡ Check API Key</button>
+          </div>
+        </div>
+
+        <!-- Roleplay Scenario Selector -->
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="step-num">2</span> Practice Scenario</h3>
+          </div>
+
+          <div class="scenario-chips" id="scenarioChips">
+            <button class="chip active" data-scenario="freeform">
+              <span class="chip-icon">💬</span>
+              <span class="chip-label">Freeform Coach</span>
+            </button>
+            <button class="chip" data-scenario="restaurant">
+              <span class="chip-icon">☕</span>
+              <span class="chip-label">Cafe / Food Order</span>
+            </button>
+            <button class="chip" data-scenario="job_interview">
+              <span class="chip-icon">💼</span>
+              <span class="chip-label">Job Interview</span>
+            </button>
+            <button class="chip" data-scenario="bargaining">
+              <span class="chip-icon">🛍️</span>
+              <span class="chip-label">Street Bargaining</span>
+            </button>
+            <button class="chip" data-scenario="directions">
+              <span class="chip-icon">📍</span>
+              <span class="chip-label">Asking Directions</span>
+            </button>
+            <button class="chip" data-scenario="ielts">
+              <span class="chip-icon">🎓</span>
+              <span class="chip-label">IELTS Speaking</span>
+            </button>
+          </div>
+
+          <!-- Prompt Customizer -->
+          <details class="prompt-details">
+            <summary>Edit Active System Instructions</summary>
+            <div class="prompt-editor-wrap">
+              <textarea id="systemPromptEditor" rows="5" placeholder="System instructions..."></textarea>
+              <button id="resetPromptBtn" class="btn-link">Reset to Default</button>
+            </div>
+          </details>
+        </div>
+
+        <!-- Telemetry & Latency Calculator Dashboard -->
+        <div class="card">
+          <div class="card-header">
+            <h3>⏱️ Live Time & Latency Calculator</h3>
+          </div>
+
+          <!-- Total Turnaround RTT Hero Banner -->
+          <div class="rtt-hero-banner" id="rttHeroBanner">
+            <div class="rtt-title">Total Turnaround (User Stop ➔ AI Speaking)</div>
+            <div class="rtt-value-row">
+              <span class="rtt-value" id="metricRtt">0 ms</span>
+              <span class="rtt-badge" id="rttBadge">Ready</span>
+            </div>
+          </div>
+
+          <!-- Step-by-Step Breakdown Grid -->
+          <div class="metrics-grid">
+            <div class="metric-item">
+              <span class="metric-label">🎙️ Mic Rec</span>
+              <span class="metric-val" id="metricStt">0 ms</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">🧠 LLM TTFT</span>
+              <span class="metric-val" id="metricTtft">0 ms</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">📝 LLM Gen</span>
+              <span class="metric-val" id="metricGen">0 ms</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">🔊 TTS Delay</span>
+              <span class="metric-val" id="metricTts">0 ms</span>
+            </div>
+          </div>
+
+          <!-- Visual Timeline Bar -->
+          <div class="timeline-bar-wrap" id="timelineBarWrap" style="display:none; margin-bottom: 10px;">
+            <div class="timeline-bar-labels">
+              <span>Time Share</span>
+              <span id="timelineBarTotal">0 ms</span>
+            </div>
+            <div class="timeline-bar">
+              <div class="t-seg t-llm" id="segLlm" style="width: 60%;" title="LLM Generation"></div>
+              <div class="t-seg t-tts" id="segTts" style="width: 40%;" title="Audio TTS"></div>
+            </div>
+            <div class="timeline-legend">
+              <span class="leg-item"><span class="dot dot-llm"></span> LLM Gen</span>
+              <span class="leg-item"><span class="dot dot-tts"></span> Audio TTS</span>
+            </div>
+          </div>
+
+          <!-- Turns & Session Avg Stats -->
+          <div class="session-stats-row">
+            <div class="stat-pill">Turns: <strong id="metricTurns">0</strong></div>
+            <div class="stat-pill">Avg RTT: <strong id="metricAvgRtt">0 ms</strong></div>
+          </div>
+
+          <div class="action-buttons-row">
+            <button id="generateReportBtn" class="btn btn-accent full-width" disabled>
+              <span>📝 Test Hinglish Report</span>
+            </button>
+            <button id="clearChatBtn" class="btn btn-secondary" title="Clear conversation">
+              🗑️
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center / Right: Live Voice & Chat Arena -->
+      <section class="chat-arena">
+
+        <!-- Live Status Bar -->
+        <div class="live-status-bar">
+          <div class="session-state">
+            <div class="state-orb" id="stateOrb"></div>
+            <div class="state-info">
+              <span class="state-title" id="stateTitle">Ready to Test</span>
+              <span class="state-desc" id="stateDesc">Tap the microphone to speak or type in the box below.</span>
+            </div>
+          </div>
+
+          <div class="audio-visualizer-container">
+            <canvas id="waveformCanvas" width="200" height="36"></canvas>
+          </div>
+        </div>
+
+        <!-- Scrollable Conversation Feed -->
+        <div class="chat-viewport" id="chatViewport">
+
+          <div class="welcome-banner" id="welcomeBanner">
+            <div class="welcome-icon">🎙️</div>
+            <h2>Hybrid Voice Testing Sandbox</h2>
+            <p>Test the <strong>Direct Mic Audio & STT + Gemini Flash + Native TTS</strong> pipeline in real time.
+              Overcomes browser network restrictions while giving ultra-low cost voice learning.</p>
+            <div class="instructions-steps">
+              <div class="step-card">
+                <div class="num">1</div>
+                <div>Paste your Gemini API Key in the left panel.</div>
+              </div>
+              <div class="step-card">
+                <div class="num">2</div>
+                <div>Tap the big Mic button below, speak your sentence, and tap it again when done.</div>
+              </div>
+              <div class="step-card">
+                <div class="num">3</div>
+                <div>Gemini directly transcribes your speech, replies instantly, and speaks back!</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="messages-stream" id="messagesStream"></div>
+        </div>
+
+        <!-- Real-Time Speech / Input Control Bar -->
+        <div class="interaction-dock">
+
+          <!-- Live Interim Transcript Capsule -->
+          <div class="interim-capsule" id="interimCapsule" style="display: none;">
+            <span class="wave-dot"></span>
+            <span id="interimText">Recording your voice... Tap mic when done!</span>
+          </div>
+
+          <div class="dock-controls">
+
+            <!-- Big Tap-to-Speak Mic Button -->
+            <button id="mainMicBtn" class="mic-trigger-btn" title="Tap to Speak (Press again when done)">
+              <div class="mic-icon-wrap">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" y1="19" x2="12" y2="23"></line>
+                  <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+              </div>
+              <span class="mic-btn-label" id="micBtnLabel">Tap to Speak</span>
+            </button>
+
+            <!-- Text Input Fallback -->
+            <div class="text-input-wrap">
+              <input type="text" id="textInput" placeholder="Type a message or prompt..." autocomplete="off">
+              <button id="sendTextBtn" class="send-btn" title="Send text message">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Stop Audio Output (Barge-in / Cancel TTS) -->
+            <button id="stopTtsBtn" class="btn btn-secondary stop-tts-btn" title="Mute AI Speech" style="display:none;">
+              ⏹️ Stop Voice
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal: Hinglish Report Analysis Preview -->
+    <div class="modal-backdrop" id="reportModal" style="display:none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <span class="modal-icon">📋</span>
+            <div>
+              <h3>Post-Session Hinglish Feedback Report</h3>
+              <p>Generated via Gemini Flash with Coach Persona & 6 Bilingual Drills</p>
+            </div>
+          </div>
+          <button id="closeReportModalBtn" class="btn-close">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="loading-spinner-wrap" id="reportLoading">
+            <div class="spinner"></div>
+            <p>Analyzing conversation turns and generating Hinglish coach drills...</p>
+          </div>
+          <div class="report-content" id="reportContent" style="display:none;"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="copyReportBtn" class="btn btn-secondary">📋 Copy Markdown</button>
+          <button id="exportJsonBtn" class="btn btn-outline">💾 Export JSON</button>
+          <button id="closeReportBtn2" class="btn btn-primary">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast" class="toast" style="display:none;"></div>
+
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────────────────────────────────────
+    // Scenario Definitions
+    // ─────────────────────────────────────────────────────────────────────────
+    const SCENARIO_PRESETS = {
+      freeform: {
+        title: 'Freeform AI Coach (Bolo)',
+        systemInstruction: `You are UTKIO (Coach Bolo), a warm, supportive AI Spoken English Coach for Indian learners.
+Guidelines:
+1. Speak in simple, friendly, conversational English with occasional natural Hinglish touch.
+2. Keep responses brief (1 to 2 short sentences max) so the conversation flows naturally.
+3. Never lecture with heavy grammar.
+4. Always end your turn with an engaging, easy question to prompt speaking.`
+      },
+      restaurant: {
+        title: 'Cafe / Food Order',
+        systemInstruction: `You are Rohan, a friendly barista at a cafe in Bangalore. The user is a customer ordering food or coffee.
+Guidelines:
+1. Greet warmly and ask for their order.
+2. Ask natural follow-ups (hot/iced, milk preference, snacks).
+3. Keep responses to 1-2 sentences in character.`
+      },
+      job_interview: {
+        title: 'Job Interview',
+        systemInstruction: `You are Priya, an HR Manager conducting an initial screening interview.
+Guidelines:
+1. Welcome candidate and ask relevant questions (background, strengths, handling pressure).
+2. Keep questions concise (1-2 sentences) to let candidate speak most of the time.`
+      },
+      bargaining: {
+        title: 'Street Bargaining',
+        systemInstruction: `You are an energetic vendor at Sarojini Nagar market selling trendy jackets.
+Guidelines:
+1. Start with an initial price and playfully negotiate when asked for a discount.
+2. Keep replies short (1-2 sentences) and fun.`
+      },
+      directions: {
+        title: 'Asking Directions',
+        systemInstruction: `You are a helpful local passerby near a metro station.
+Guidelines:
+1. Give simple step-by-step directions to the landmark they ask for.
+2. Keep replies to 1-2 clear sentences.`
+      },
+      ielts: {
+        title: 'IELTS Speaking',
+        systemInstruction: `You are an IELTS Speaking Examiner.
+Guidelines:
+1. Ask standard IELTS speaking prompts (hometown, hobbies, travel).
+2. Keep questions concise and formal (1-2 sentences).`
+      }
+    };
+
+    const HINGLISH_REPORT_PROMPT = `You are the lead English Coach at UTKIO. Analyze the conversation transcript between an Indian learner and the AI coach.
+Generate a high-impact, encouraging feedback report in natural HINGLISH (simple English + everyday conversational Hindi words like 'yaar', 'aap', 'dhyaan dein').
+Format:
+1. Short encouraging assessment.
+2. Genuine mistake breakdowns with simple reasoning.
+3. 6 bilingual drills in this format:
+   - **Hindi Thought**: [User ne kya socha]
+   - **Wrong English**: [User ne kya bola]
+   - **Better/Correct English**: [Natural tarika]
+4. 2 quick practice tips.
+Output clean Markdown with bold headers.`;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Audio Visualizer
+    // ─────────────────────────────────────────────────────────────────────────
+    class AudioVisualizer {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        this.state = 'IDLE';
+        this.phase = 0;
+        if (this.canvas) this.start();
+      }
+      setState(s) { this.state = s; }
+      start() {
+        const render = () => {
+          this.draw();
+          requestAnimationFrame(render);
+        };
+        render();
+      }
+      draw() {
+        if (!this.ctx || !this.canvas) return;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        this.ctx.clearRect(0, 0, w, h);
+        this.phase += 0.08;
+        const centerY = h / 2;
+        const bars = 20;
+        const spacing = w / bars;
+        let color = 'rgba(148, 163, 184, 0.3)';
+        let maxAmp = 2;
+
+        if (this.state === 'LISTENING') { color = '#ff7849'; maxAmp = 12; }
+        else if (this.state === 'THINKING') { color = '#06b6d4'; maxAmp = 8; }
+        else if (this.state === 'SPEAKING') { color = '#10b981'; maxAmp = 14; }
+
+        for (let i = 0; i < bars; i++) {
+          const x = i * spacing + spacing / 2;
+          let amp = 2;
+          if (this.state === 'LISTENING') {
+            amp = Math.max(3, Math.abs(Math.sin(this.phase + i * 0.4)) * maxAmp);
+          } else if (this.state === 'THINKING') {
+            amp = 3 + (Math.sin(this.phase * 1.5 + i * 0.3) + 1) * (maxAmp / 2);
+          } else if (this.state === 'SPEAKING') {
+            amp = Math.max(3, Math.abs(Math.sin(this.phase * 1.2 + i * 0.5)) * maxAmp);
+          }
+          this.ctx.fillStyle = color;
+          this.ctx.beginPath();
+          this.ctx.roundRect(x - 2, centerY - amp / 2, 4, amp, 2);
+          this.ctx.fill();
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helper 1: Google Indian Neural Audio Streamer (100% Free, Zero Key, Authentic Accent)
+    // ─────────────────────────────────────────────────────────────────────────
+    function playGoogleTtsQueue(text, lang = 'en-IN', rate = 1.25, onStart, onEnd, onError) {
+      const clean = text.replace(/[*_`#]/g, '').replace(/\[.*?\]\(.*?\)/g, '').trim();
+      const chunks = [];
+      const sentences = clean.match(/[^.!?\n,]+[.!?\n,]*/g) || [clean];
+
+      for (let s of sentences) {
+        s = s.trim();
+        if (!s) continue;
+        while (s.length > 140) {
+          let idx = s.lastIndexOf(' ', 140);
+          if (idx === -1) idx = 140;
+          chunks.push(s.slice(0, idx).trim());
+          s = s.slice(idx).trim();
+        }
+        if (s) chunks.push(s);
+      }
+
+      if (chunks.length === 0) {
+        if (onEnd) onEnd();
+        return null;
+      }
+
+      let currentIdx = 0;
+      let audio = null;
+      let cancelled = false;
+
+      function playNext() {
+        if (cancelled || currentIdx >= chunks.length) {
+          if (onEnd) onEnd();
+          return;
+        }
+        const q = chunks[currentIdx++];
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${encodeURIComponent(lang)}&q=${encodeURIComponent(q)}`;
+        audio = new Audio(url);
+        audio.playbackRate = parseFloat(rate) || 1.25;
+        audio.preservesPitch = true;
+
+        audio.onplay = () => {
+          if (currentIdx === 1 && onStart) onStart();
+        };
+        audio.onended = () => {
+          playNext();
+        };
+        audio.onerror = (e) => {
+          console.warn("Google TTS chunk error, falling back:", e);
+          if (onError) onError(e);
+        };
+        audio.play().catch(e => {
+          console.warn("Google TTS play rejected:", e);
+          if (onError) onError(e);
+        });
+      }
+
+      playNext();
+
+      return {
+        stop: () => {
+          cancelled = true;
+          if (audio) { audio.pause(); audio = null; }
+        }
+      };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helper 2: Convert 24kHz 16-bit PCM (from Gemini) to Playable WAV Blob
+    // ─────────────────────────────────────────────────────────────────────────
+    function pcmToWavBlob(base64Pcm, sampleRate = 24000) {
+      const binaryString = atob(base64Pcm);
+      const len = binaryString.length;
+      const buffer = new ArrayBuffer(44 + len);
+      const view = new DataView(buffer);
+
+      function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i));
+        }
+      }
+
+      writeString(view, 0, 'RIFF');
+      view.setUint32(4, 36 + len, true);
+      writeString(view, 8, 'WAVE');
+      writeString(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // Linear PCM
+      view.setUint16(22, 1, true); // Mono
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true); // Byte rate
+      view.setUint16(32, 2, true); // Block align
+      view.setUint16(34, 16, true); // 16-bit
+      writeString(view, 36, 'data');
+      view.setUint32(40, len, true);
+
+      const pcmBytes = new Uint8Array(buffer, 44);
+      for (let i = 0; i < len; i++) {
+        pcmBytes[i] = binaryString.charCodeAt(i);
+      }
+
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Multi-Mode Voice Engine with Sentence-Level Streaming Pipelining ⚡
+    // ─────────────────────────────────────────────────────────────────────────
+    class HybridVoiceEngine {
+      constructor(opts = {}) {
+        this.apiKey = opts.apiKey || '';
+        this.model = opts.model || 'gemini-3.5-flash-lite';
+        this.inputMode = opts.inputMode || 'multimodal'; // 'multimodal' | 'webspeech'
+        this.ttsEngine = opts.ttsEngine || 'google_indian'; // 'google_indian' | 'gemini_native' | 'browser_tts'
+        this.googleLang = opts.googleLang || 'en-IN'; // 'en-IN' | 'hi' | 'en-GB'
+        this.speechRate = opts.speechRate || 1.25;
+        this.geminiVoice = opts.geminiVoice || 'Aoede';
+        this.systemInstruction = opts.systemInstruction || '';
+        this.selectedVoice = null;
+
+        this.onStatusChange = opts.onStatusChange || (() => { });
+        this.onInterimSpeech = opts.onInterimSpeech || (() => { });
+        this.onFinalSpeech = opts.onFinalSpeech || (() => { });
+        this.onUserTranscription = opts.onUserTranscription || (() => { });
+        this.onStreamChunk = opts.onStreamChunk || (() => { });
+        this.onResponseComplete = opts.onResponseComplete || (() => { });
+        this.onError = opts.onError || (() => { });
+        this.onMetricsUpdate = opts.onMetricsUpdate || (() => { });
+
+        this.synth = window.speechSynthesis;
+        this.currentAudio = null;
+        this.isListening = false;
+        this.history = [];
+        this.currentAbortController = null;
+
+        // Pipelined Sentence Queue
+        this.sentenceQueue = [];
+        this.isSpeakingQueue = false;
+        this.sentenceBuffer = '';
+        this.hasFirstAudioPlayed = false;
+
+        // Web Speech STT
+        this.recognition = null;
+
+        // Direct MediaRecorder
+        this.mediaStream = null;
+        this.mediaRecorder = null;
+        this.audioChunks = [];
+
+        this.recStartTime = 0;
+        this.userFinishedTime = 0;
+        this.llmStartTime = 0;
+      }
+
+      // Start recording
+      async startListening() {
+        this.stopSpeaking();
+
+        if (this.inputMode === 'multimodal') {
+          await this.startMediaRecorder();
+        } else {
+          this.startWebSpeech();
+        }
+      }
+
+      // Stop recording
+      stopListening() {
+        if (this.inputMode === 'multimodal') {
+          this.stopMediaRecorder();
+        } else {
+          this.stopWebSpeech();
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // Mode 1: Direct MediaRecorder Audio (100% Free of Chrome Network Errors)
+      // ───────────────────────────────────────────────────────────────────────
+      async startMediaRecorder() {
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Microphone API not supported on this browser.");
+          }
+
+          const isStreamValid = this.mediaStream && this.mediaStream.active && this.mediaStream.getAudioTracks().some(t => t.readyState === 'live');
+          if (!isStreamValid) {
+            this.mediaStream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                channelCount: 1,
+                sampleRate: 16000,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              }
+            });
+          }
+          this.audioChunks = [];
+
+          let mimeType = 'audio/webm;codecs=opus';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
+            else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+            else if (MediaRecorder.isTypeSupported('audio/ogg')) mimeType = 'audio/ogg';
+            else mimeType = '';
+          }
+
+          const recorderOptions = mimeType ? { mimeType, audioBitsPerSecond: 24000 } : { audioBitsPerSecond: 24000 };
+          this.mediaRecorder = new MediaRecorder(this.mediaStream, recorderOptions);
+
+          this.mediaRecorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) {
+              this.audioChunks.push(e.data);
+            }
+          };
+
+          this.mediaRecorder.onstart = () => {
+            this.isListening = true;
+            this.recStartTime = performance.now();
+            this.onStatusChange('LISTENING');
+            this.onInterimSpeech("Recording voice... Tap mic again when finished speaking!");
+          };
+
+          this.mediaRecorder.onstop = async () => {
+            this.isListening = false;
+            this.userFinishedTime = performance.now();
+            this.recDuration = Math.round(this.userFinishedTime - this.recStartTime);
+            this.onMetricsUpdate({ sttLatency: this.recDuration });
+
+            if (this.audioChunks.length === 0) {
+              this.onStatusChange('IDLE');
+              return;
+            }
+
+            const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = () => {
+              const base64Data = reader.result.split(',')[1];
+              this.sendAudioToGemini(base64Data, mimeType);
+            };
+          };
+
+          this.mediaRecorder.start();
+
+        } catch (err) {
+          console.error("MediaRecorder start error:", err);
+          this.isListening = false;
+          this.onStatusChange('IDLE');
+          this.onError(`Microphone Error: ${err.message}. Ensure mic access is allowed.`);
+        }
+      }
+
+      stopMediaRecorder() {
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+          this.mediaRecorder.stop();
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // Mode 2: Web Speech STT (For Android/Capacitor or Localhost)
+      // ───────────────────────────────────────────────────────────────────────
+      startWebSpeech() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          this.onError('Web Speech API not supported. Switching to Direct Audio mode.');
+          this.inputMode = 'multimodal';
+          this.startMediaRecorder();
+          return;
+        }
+
+        if (!this.recognition) {
+          this.recognition = new SpeechRecognition();
+          this.recognition.lang = 'en-IN';
+          this.recognition.continuous = false;
+          this.recognition.interimResults = true;
+
+          this.recognition.onstart = () => {
+            this.isListening = true;
+            this.recStartTime = performance.now();
+            this.onStatusChange('LISTENING');
+          };
+
+          this.recognition.onresult = (event) => {
+            let interim = '';
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+              else interim += event.results[i][0].transcript;
+            }
+            if (interim) this.onInterimSpeech(interim);
+            if (finalTranscript) {
+              this.userFinishedTime = performance.now();
+              this.recDuration = Math.round(this.userFinishedTime - this.recStartTime);
+              this.onMetricsUpdate({ sttLatency: this.recDuration });
+              this.onFinalSpeech(finalTranscript.trim());
+              this.sendTextToGemini(finalTranscript.trim());
+            }
+          };
+
+          this.recognition.onerror = (e) => {
+            console.warn('STT Error:', e.error);
+            this.isListening = false;
+            this.onStatusChange('IDLE');
+            if (e.error === 'network') {
+              this.onError("Web Speech network error. Auto-switching to 'Direct Mic Audio' mode for seamless testing!");
+              document.getElementById('inputModeSelect').value = 'multimodal';
+              this.inputMode = 'multimodal';
+            } else if (e.error !== 'no-speech') {
+              this.onError(`Speech Error: ${e.error}`);
+            }
+          };
+
+          this.recognition.onend = () => { this.isListening = false; };
+        }
+
+        try { this.recognition.start(); } catch (e) { }
+      }
+
+      stopWebSpeech() {
+        if (this.recognition && this.isListening) {
+          try { this.recognition.stop(); } catch (e) { }
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // Send Direct Base64 Audio to Gemini Flash (With Audio Transcription)
+      // ───────────────────────────────────────────────────────────────────────
+      async sendAudioToGemini(base64Audio, mimeType) {
+        if (!this.apiKey) {
+          this.onError('Please enter your Gemini API Key in the left panel.');
+          this.onStatusChange('IDLE');
+          return;
+        }
+
+        this.stopSpeaking();
+        if (this.currentAbortController) this.currentAbortController.abort();
+        this.currentAbortController = new AbortController();
+
+        this.onStatusChange('THINKING');
+        this.llmStartTime = performance.now();
+        if (!this.userFinishedTime) this.userFinishedTime = this.llmStartTime;
+        this.hasFirstAudioPlayed = false;
+        this.sentenceBuffer = '';
+        this.sentenceQueue = [];
+
+        // Create user bubble with placeholder that will be dynamically updated with transcribed words
+        this.onFinalSpeech("🎙️ Transcribing your speech...", true);
+
+        const promptInstruction = `Listen carefully to the user's spoken audio in Indian English or Hinglish.
+You MUST format your entire response strictly into two tagged sections:
+
+USER_SAID: <Transcribe user's speech word-for-word in Hinglish/English>
+COACH_REPLY: <Your friendly, warm, conversational response (1-2 sentences) as the Utkio AI English Coach in character>`;
+
+        const contents = [
+          ...this.history.map(h => ({ role: h.role, parts: h.parts })),
+          {
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType: mimeType.split(';')[0], data: base64Audio } },
+              { text: promptInstruction }
+            ]
+          }
+        ];
+
+        const genConfig = { maxOutputTokens: 350, temperature: 0.7 };
+        if (this.ttsEngine === 'gemini_native') {
+          genConfig.responseModalities = ["AUDIO", "TEXT"];
+          genConfig.speechConfig = {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: this.geminiVoice || "Aoede"
+              }
+            }
+          };
+        }
+
+        const payload = {
+          contents: contents,
+          generationConfig: genConfig
+        };
+
+        if (this.systemInstruction) {
+          payload.systemInstruction = { parts: [{ text: this.systemInstruction }] };
+        }
+
+        await this.streamGemini(payload, true);
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // Send Text to Gemini Flash
+      // ───────────────────────────────────────────────────────────────────────
+      async sendTextToGemini(userText) {
+        if (!this.apiKey) {
+          this.onError('Please enter your Gemini API Key in the left panel.');
+          this.onStatusChange('IDLE');
+          return;
+        }
+
+        this.stopSpeaking();
+        if (this.currentAbortController) this.currentAbortController.abort();
+        this.currentAbortController = new AbortController();
+
+        this.onStatusChange('THINKING');
+        this.llmStartTime = performance.now();
+        this.userFinishedTime = this.llmStartTime;
+        this.hasFirstAudioPlayed = false;
+        this.sentenceBuffer = '';
+        this.sentenceQueue = [];
+
+        this.history.push({ role: 'user', parts: [{ text: userText }] });
+
+        const genConfig = { maxOutputTokens: 300, temperature: 0.7 };
+        if (this.ttsEngine === 'gemini_native') {
+          genConfig.responseModalities = ["AUDIO", "TEXT"];
+          genConfig.speechConfig = {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: this.geminiVoice || "Aoede"
+              }
+            }
+          };
+        }
+
+        const payload = {
+          contents: this.history.map(h => ({ role: h.role, parts: h.parts })),
+          generationConfig: genConfig
+        };
+
+        if (this.systemInstruction) {
+          payload.systemInstruction = { parts: [{ text: this.systemInstruction }] };
+        }
+
+        await this.streamGemini(payload, false);
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // Core SSE Streamer with Transcription & Sentence Pipelining ⚡
+      // ───────────────────────────────────────────────────────────────────────
+      async streamGemini(payload, isAudioInput = false) {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:streamGenerateContent?alt=sse&key=${this.apiKey}`;
+        let rawAccumulator = '';
+        let fullReplyText = '';
+        let parsedUserText = '';
+        let isParsingCoachReply = false;
+        let audioPcmBase64 = '';
+        let isFirstToken = true;
+
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: this.currentAbortController.signal
+          });
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith('data: ')) {
+                const dataStr = trimmed.slice(6);
+                if (dataStr === '[DONE]') continue;
+                try {
+                  const parsed = JSON.parse(dataStr);
+                  const candidate = parsed.candidates?.[0];
+                  const parts = candidate?.content?.parts || [];
+
+                  for (const part of parts) {
+                    if (part.text) {
+                      if (isFirstToken) {
+                        isFirstToken = false;
+                        this.ttft = Math.round(performance.now() - this.llmStartTime);
+                        this.onMetricsUpdate({ ttft: this.ttft });
+                      }
+
+                      if (isAudioInput) {
+                        rawAccumulator += part.text;
+
+                        if (!isParsingCoachReply) {
+                          const coachTagIndex = rawAccumulator.search(/COACH_REPLY:|COACH:/i);
+                          if (coachTagIndex !== -1) {
+                            isParsingCoachReply = true;
+                            const userSaidRaw = rawAccumulator.slice(0, coachTagIndex);
+                            parsedUserText = userSaidRaw
+                              .replace(/^USER_SAID:\s*/i, '')
+                              .replace(/^TRANSCRIPT:\s*/i, '')
+                              .trim();
+
+                            this.onUserTranscription(parsedUserText, true);
+
+                            // Extract any coach text following the tag
+                            const matchTag = rawAccumulator.match(/COACH_REPLY:|COACH:/i);
+                            const coachStart = coachTagIndex + matchTag[0].length;
+                            const coachInitial = rawAccumulator.slice(coachStart).trimStart();
+                            if (coachInitial) {
+                              fullReplyText += coachInitial;
+                              this.onStreamChunk(fullReplyText);
+                              if (this.ttsEngine !== 'gemini_native') {
+                                this.processTextChunkForSentences(coachInitial);
+                              }
+                            }
+                          } else {
+                            // Still receiving USER_SAID: stream user transcription into chat bubble live!
+                            const interimUser = rawAccumulator
+                              .replace(/^USER_SAID:\s*/i, '')
+                              .replace(/^TRANSCRIPT:\s*/i, '')
+                              .trim();
+                            if (interimUser) {
+                              this.onUserTranscription(interimUser, false);
+                            }
+                          }
+                        } else {
+                          // We are now streaming Coach Reply
+                          fullReplyText += part.text;
+                          this.onStreamChunk(fullReplyText);
+
+                          if (this.ttsEngine !== 'gemini_native') {
+                            this.processTextChunkForSentences(part.text);
+                          }
+                        }
+
+                      } else {
+                        // Standard Text Input (no tags)
+                        fullReplyText += part.text;
+                        this.onStreamChunk(fullReplyText);
+
+                        if (this.ttsEngine !== 'gemini_native') {
+                          this.processTextChunkForSentences(part.text);
+                        }
+                      }
+                    }
+
+                    if (part.inlineData && part.inlineData.data) {
+                      audioPcmBase64 += part.inlineData.data;
+                    }
+                  }
+                } catch (e) { }
+              }
+            }
+          }
+
+          this.genTime = Math.round(performance.now() - this.llmStartTime);
+          this.onMetricsUpdate({ genTime: this.genTime });
+
+          // Handle fallback if audio prompt was returned without tags
+          if (isAudioInput && !isParsingCoachReply) {
+            if (rawAccumulator.trim()) {
+              parsedUserText = "(Voice input recorded)";
+              fullReplyText = rawAccumulator.replace(/^USER_SAID:\s*/i, '').trim();
+              this.onUserTranscription(parsedUserText, true);
+              this.onStreamChunk(fullReplyText);
+            }
+          }
+
+          // Flush any remaining sentence buffer
+          if (this.ttsEngine !== 'gemini_native' && this.sentenceBuffer.trim()) {
+            this.enqueueSentence(this.sentenceBuffer.trim());
+            this.sentenceBuffer = '';
+          }
+
+          if (!fullReplyText && audioPcmBase64) {
+            fullReplyText = "(Spoken Voice Response)";
+            this.onStreamChunk(fullReplyText);
+          }
+
+          if (isAudioInput) {
+            this.history.push({ role: 'user', parts: [{ text: parsedUserText || '[Voice Input]' }] });
+          }
+          this.history.push({ role: 'model', parts: [{ text: fullReplyText }] });
+
+          this.onResponseComplete(fullReplyText);
+
+          // Play Audio if Gemini Native Audio was requested
+          if (this.ttsEngine === 'gemini_native' && audioPcmBase64) {
+            const wavBlob = pcmToWavBlob(audioPcmBase64, 24000);
+            this.playAudioBlob(wavBlob);
+          }
+
+        } catch (err) {
+          if (err.name === 'AbortError') {
+            console.log('Gemini stream aborted by user barge-in.');
+            return;
+          }
+          console.error('Gemini API Stream Error:', err);
+          this.onError(`AI Error: ${err.message}`);
+          this.onStatusChange('IDLE');
+        } finally {
+          this.currentAbortController = null;
+        }
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // Sentence Slicing & Utterance Queue Pipelining 🚀
+      // ───────────────────────────────────────────────────────────────────────
+      processTextChunkForSentences(textChunk) {
+        this.sentenceBuffer += textChunk;
+
+        let hasMatch = true;
+        while (hasMatch) {
+          hasMatch = false;
+
+          // Regex 1: Full sentence boundary
+          const sentenceMatch = this.sentenceBuffer.match(/^([\s\S]+?[.!?\n।]+)\s*([\s\S]*)$/);
+          if (sentenceMatch) {
+            const sentence = sentenceMatch[1].trim();
+            this.sentenceBuffer = sentenceMatch[2];
+            if (sentence) {
+              this.enqueueSentence(sentence);
+              hasMatch = true;
+            }
+          } else if (this.sentenceBuffer.length > 70) {
+            // Regex 2: Clause boundary for fast initial TTFA
+            const clauseMatch = this.sentenceBuffer.match(/^([\s\S]+?[,;:\-–])\s*([\s\S]*)$/);
+            if (clauseMatch) {
+              const clause = clauseMatch[1].trim();
+              this.sentenceBuffer = clauseMatch[2];
+              if (clause) {
+                this.enqueueSentence(clause);
+                hasMatch = true;
+              }
+            }
+          }
+        }
+      }
+
+      enqueueSentence(sentenceText) {
+        const clean = sentenceText
+          .replace(/[*_`#]/g, '')
+          .replace(/\[.*?\]\(.*?\)/g, '')
+          .replace(/https?:\/\/\S+/g, '')
+          .trim();
+
+        if (!clean) return;
+
+        this.sentenceQueue.push(clean);
+        if (!this.isSpeakingQueue) {
+          this.playNextInSentenceQueue();
+        }
+      }
+
+      playNextInSentenceQueue() {
+        if (this.sentenceQueue.length === 0) {
+          this.isSpeakingQueue = false;
+          this.onStatusChange('IDLE');
+          return;
+        }
+
+        this.isSpeakingQueue = true;
+        const currentSentence = this.sentenceQueue.shift();
+
+        if (this.ttsEngine === 'google_indian') {
+          this.playGoogleSentence(currentSentence);
+        } else {
+          this.playBrowserSentence(currentSentence);
+        }
+      }
+
+      playGoogleSentence(sentence) {
+        const lang = this.googleLang || 'en-IN';
+        const rate = parseFloat(this.speechRate) || 1.25;
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${encodeURIComponent(lang)}&q=${encodeURIComponent(sentence)}`;
+
+        this.currentAudio = new Audio(url);
+        this.currentAudio.playbackRate = rate;
+        this.currentAudio.preservesPitch = true;
+
+        this.currentAudio.onplay = () => {
+          if (!this.hasFirstAudioPlayed) {
+            this.hasFirstAudioPlayed = true;
+            const ttfa = Math.round(performance.now() - (this.userFinishedTime || this.llmStartTime));
+            const ttsDelay = Math.round(performance.now() - this.llmStartTime);
+            this.onMetricsUpdate({ ttsDelay, totalRtt: ttfa });
+          }
+          this.onStatusChange('SPEAKING');
+        };
+
+        this.currentAudio.onended = () => {
+          this.currentAudio = null;
+          this.playNextInSentenceQueue();
+        };
+
+        this.currentAudio.onerror = (e) => {
+          console.warn("Google TTS chunk failed, falling back to local voice:", e);
+          this.playBrowserSentence(sentence);
+        };
+
+        this.currentAudio.play().catch(err => {
+          console.warn("Audio autoplay blocked, falling back to local synth:", err);
+          this.playBrowserSentence(sentence);
+        });
+      }
+
+      playBrowserSentence(sentence) {
+        if (!this.synth) {
+          this.playNextInSentenceQueue();
+          return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(sentence);
+        utterance.rate = parseFloat(this.speechRate) || 1.20;
+
+        if (this.selectedVoice) {
+          utterance.voice = this.selectedVoice;
+        } else {
+          const voices = this.synth.getVoices();
+          const inVoice = voices.find(v => (v.lang.includes('en-IN') || v.lang.includes('hi-IN') || v.name.includes('India') || v.name.includes('Neerja') || v.name.includes('Heera')));
+          const usVoice = voices.find(v => v.lang.includes('en-US'));
+          if (inVoice) utterance.voice = inVoice;
+          else if (usVoice) utterance.voice = usVoice;
+        }
+
+        utterance.onstart = () => {
+          if (!this.hasFirstAudioPlayed) {
+            this.hasFirstAudioPlayed = true;
+            const ttfa = Math.round(performance.now() - (this.userFinishedTime || this.llmStartTime));
+            const ttsDelay = Math.round(performance.now() - this.llmStartTime);
+            this.onMetricsUpdate({ ttsDelay, totalRtt: ttfa });
+          }
+          this.onStatusChange('SPEAKING');
+        };
+
+        utterance.onend = () => {
+          this.playNextInSentenceQueue();
+        };
+
+        utterance.onerror = () => {
+          this.playNextInSentenceQueue();
+        };
+
+        this.synth.speak(utterance);
+      }
+
+      playAudioBlob(blob) {
+        this.stopSpeaking();
+        const url = URL.createObjectURL(blob);
+        this.currentAudio = new Audio(url);
+        this.currentAudio.playbackRate = parseFloat(this.speechRate) || 1.25;
+        this.currentAudio.preservesPitch = true;
+
+        this.currentAudio.onplay = () => {
+          const ttfa = Math.round(performance.now() - (this.userFinishedTime || this.llmStartTime));
+          this.onMetricsUpdate({ ttsDelay: ttfa, totalRtt: ttfa });
+          this.onStatusChange('SPEAKING');
+        };
+
+        this.currentAudio.onended = () => {
+          URL.revokeObjectURL(url);
+          this.currentAudio = null;
+          this.onStatusChange('IDLE');
+        };
+
+        this.currentAudio.onerror = () => {
+          URL.revokeObjectURL(url);
+          this.currentAudio = null;
+          this.onStatusChange('IDLE');
+        };
+
+        this.currentAudio.play().catch(() => {
+          this.onStatusChange('IDLE');
+        });
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // Barge-In / Instant Stop Controller ⏹️
+      // ───────────────────────────────────────────────────────────────────────
+      stopSpeaking() {
+        if (this.currentAbortController) {
+          this.currentAbortController.abort();
+          this.currentAbortController = null;
+        }
+        this.sentenceBuffer = '';
+        this.sentenceQueue = [];
+        this.isSpeakingQueue = false;
+
+        if (this.currentAudio) {
+          this.currentAudio.pause();
+          this.currentAudio.currentTime = 0;
+          this.currentAudio = null;
+        }
+        if (this.synth && this.synth.speaking) {
+          this.synth.cancel();
+        }
+        this.onStatusChange('IDLE');
+      }
+
+      speak(rawText) {
+        this.stopSpeaking();
+        const cleanText = rawText.replace(/[*_`#]/g, '').replace(/\[.*?\]\(.*?\)/g, '').trim();
+        if (!cleanText) return;
+
+        const sentences = cleanText.match(/[^.!?\n,]+[.!?\n,]*/g) || [cleanText];
+        for (const s of sentences) {
+          if (s.trim()) this.enqueueSentence(s.trim());
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // UI Controller Logic
+    // ─────────────────────────────────────────────────────────────────────────
+    let visualizer, engine;
+    let currentScenario = 'freeform';
+    let conversationTurns = [];
+    let currentStreamingMsgBubble = null;
+    let currentUserMsgBubble = null;
+    let lastReportMarkdown = '';
+
+    const geminiApiKeyInput = document.getElementById('geminiApiKey');
+    const toggleKeyVisibilityBtn = document.getElementById('toggleKeyVisibility');
+    const apiStatusBadge = document.getElementById('apiStatusBadge');
+    const modelSelect = document.getElementById('modelSelect');
+    const customModelGroup = document.getElementById('customModelGroup');
+    const customModelNameInput = document.getElementById('customModelName');
+    const inputModeSelect = document.getElementById('inputModeSelect');
+    const ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
+    const testApiBtn = document.getElementById('testApiBtn');
+
+    const scenarioChips = document.getElementById('scenarioChips');
+    const systemPromptEditor = document.getElementById('systemPromptEditor');
+    const resetPromptBtn = document.getElementById('resetPromptBtn');
+
+    const metricStt = document.getElementById('metricStt');
+    const metricTtft = document.getElementById('metricTtft');
+    const metricTts = document.getElementById('metricTts');
+    const metricTurns = document.getElementById('metricTurns');
+    const generateReportBtn = document.getElementById('generateReportBtn');
+    const clearChatBtn = document.getElementById('clearChatBtn');
+
+    const stateOrb = document.getElementById('stateOrb');
+    const stateTitle = document.getElementById('stateTitle');
+    const stateDesc = document.getElementById('stateDesc');
+
+    const chatViewport = document.getElementById('chatViewport');
+    const welcomeBanner = document.getElementById('welcomeBanner');
+    const messagesStream = document.getElementById('messagesStream');
+
+    const interimCapsule = document.getElementById('interimCapsule');
+    const interimText = document.getElementById('interimText');
+    const mainMicBtn = document.getElementById('mainMicBtn');
+    const micBtnLabel = document.getElementById('micBtnLabel');
+    const textInput = document.getElementById('textInput');
+    const sendTextBtn = document.getElementById('sendTextBtn');
+    const stopTtsBtn = document.getElementById('stopTtsBtn');
+
+    const reportModal = document.getElementById('reportModal');
+    const closeReportModalBtn = document.getElementById('closeReportModalBtn');
+    const closeReportBtn2 = document.getElementById('closeReportBtn2');
+    const reportLoading = document.getElementById('reportLoading');
+    const reportContent = document.getElementById('reportContent');
+    const copyReportBtn = document.getElementById('copyReportBtn');
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const toast = document.getElementById('toast');
+
+    function getActiveModel() {
+      if (modelSelect.value === 'custom') return customModelNameInput.value.trim() || 'gemini-3.1-flash-lite';
+      return modelSelect.value;
+    }
+
+    function showToast(msg, type = 'info') {
+      toast.innerText = msg;
+      toast.style.borderColor = type === 'error' ? 'var(--accent-red)' : 'var(--primary)';
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 4000);
+    }
+
+    function updateStatus(status) {
+      if (visualizer) visualizer.setState(status);
+      stateOrb.className = 'state-orb';
+
+      if (status === 'LISTENING') {
+        stateOrb.classList.add('listening');
+        stateTitle.innerText = 'Listening / Recording...';
+        stateDesc.innerText = 'Speak in Hinglish or English. Tap mic again when finished.';
+        mainMicBtn.classList.add('active');
+        micBtnLabel.innerText = 'Tap to Finish';
+        stopTtsBtn.style.display = 'none';
+      } else if (status === 'THINKING') {
+        stateOrb.classList.add('thinking');
+        stateTitle.innerText = 'Thinking...';
+        stateDesc.innerText = 'Gemini Flash is generating response...';
+        mainMicBtn.classList.remove('active');
+        micBtnLabel.innerText = 'Thinking...';
+        stopTtsBtn.style.display = 'none';
+      } else if (status === 'SPEAKING') {
+        stateOrb.classList.add('speaking');
+        stateTitle.innerText = 'Coach Speaking';
+        stateDesc.innerText = 'Playing response via Native SpeechSynthesis.';
+        mainMicBtn.classList.remove('active');
+        micBtnLabel.innerText = 'Tap to Speak';
+        stopTtsBtn.style.display = 'inline-flex';
+      } else {
+        stateTitle.innerText = 'Ready to Test';
+        stateDesc.innerText = 'Tap mic to speak or type in the box.';
+        mainMicBtn.classList.remove('active');
+        micBtnLabel.innerText = 'Tap to Speak';
+        stopTtsBtn.style.display = 'none';
+        interimCapsule.style.display = 'none';
+      }
+    }
+
+    function appendMessage(role, text, isStreaming = false) {
+      if (welcomeBanner) welcomeBanner.style.display = 'none';
+      const row = document.createElement('div');
+      row.className = `message-row ${role}`;
+      const avatar = document.createElement('div');
+      avatar.className = 'msg-avatar';
+      avatar.innerText = role === 'user' ? '👤' : '🤖';
+
+      const wrap = document.createElement('div');
+      wrap.className = 'msg-bubble-wrap';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      bubble.innerText = text;
+
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      meta.innerHTML = `<span class="msg-tag">${role === 'user' ? 'You' : 'Utkio Coach'}</span> <span>${timeStr}</span>`;
+
+      if (role === 'ai') {
+        const replay = document.createElement('button');
+        replay.className = 'btn-link';
+        replay.innerText = '🔊 Replay';
+        replay.onclick = () => { if (engine) engine.speak(bubble.innerText); };
+        meta.appendChild(replay);
+      }
+
+      wrap.appendChild(bubble);
+      wrap.appendChild(meta);
+      row.appendChild(avatar);
+      row.appendChild(wrap);
+      messagesStream.appendChild(row);
+      chatViewport.scrollTop = chatViewport.scrollHeight;
+
+      if (role === 'user' && !isStreaming) {
+        conversationTurns.push({ role: 'user', text: text });
+        metricTurns.innerText = conversationTurns.length;
+        generateReportBtn.disabled = conversationTurns.length < 2;
+      }
+      return bubble;
+    }
+
+    function populateVoices() {
+      if (!window.speechSynthesis) return;
+      const voices = window.speechSynthesis.getVoices();
+      ttsVoiceSelect.innerHTML = '';
+
+      const def = document.createElement('option');
+      def.value = 'default';
+      def.innerText = 'Auto-Detect (Indian English / Hindi Natural)';
+      ttsVoiceSelect.appendChild(def);
+
+      // Separate Indian voices to put at the top
+      const indianVoices = [];
+      const otherVoices = [];
+
+      voices.forEach(v => {
+        const isIndian = v.lang.includes('en-IN') || v.lang.includes('hi-IN') || v.name.includes('India') || v.name.includes('Neerja') || v.name.includes('Heera') || v.name.includes('Prabhat') || v.name.includes('Kalpana');
+        if (isIndian) indianVoices.push(v);
+        else otherVoices.push(v);
+      });
+
+      if (indianVoices.length > 0) {
+        const optGroup = document.createElement('optgroup');
+        optGroup.label = "🌟 Recommended Indian Voices (Best for Hinglish)";
+        indianVoices.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.name;
+          opt.innerText = `${v.name} (${v.lang})`;
+          optGroup.appendChild(opt);
+        });
+        ttsVoiceSelect.appendChild(optGroup);
+      }
+
+      if (otherVoices.length > 0) {
+        const optGroup2 = document.createElement('optgroup');
+        optGroup2.label = "Standard Device Voices";
+        otherVoices.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.name;
+          opt.innerText = `${v.name} (${v.lang})`;
+          optGroup2.appendChild(opt);
+        });
+        ttsVoiceSelect.appendChild(optGroup2);
+      }
+    }
+
+    // Initialize App
+    // NOTE: Enter your Gemini API Key in the settings panel — do NOT hardcode here.
+    const DEFAULT_API_KEY = '';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      visualizer = new AudioVisualizer('waveformCanvas');
+
+      const ttsEngineSelect = document.getElementById('ttsEngineSelect');
+      const googleVoiceGroup = document.getElementById('googleVoiceGroup');
+      const googleVoiceSelect = document.getElementById('googleVoiceSelect');
+      const geminiVoiceGroup = document.getElementById('geminiVoiceGroup');
+      const geminiVoiceSelect = document.getElementById('geminiVoiceSelect');
+      const browserVoiceGroup = document.getElementById('browserVoiceGroup');
+      const voiceRateSelect = document.getElementById('voiceRateSelect');
+      const previewVoiceBtn = document.getElementById('previewVoiceBtn');
+
+      const savedKey = localStorage.getItem('utkio_gemini_key') || DEFAULT_API_KEY;
+      if (savedKey) {
+        geminiApiKeyInput.value = savedKey;
+        apiStatusBadge.className = 'status-pill status-ready';
+        apiStatusBadge.innerText = 'Key Set ✓';
+      }
+
+      systemPromptEditor.value = SCENARIO_PRESETS[currentScenario].systemInstruction;
+      populateVoices();
+      if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = populateVoices;
+
+      const metricRtt = document.getElementById('metricRtt');
+      const rttBadge = document.getElementById('rttBadge');
+      const metricGen = document.getElementById('metricGen');
+      const timelineBarWrap = document.getElementById('timelineBarWrap');
+      const timelineBarTotal = document.getElementById('timelineBarTotal');
+      const segLlm = document.getElementById('segLlm');
+      const segTts = document.getElementById('segTts');
+      const metricAvgRtt = document.getElementById('metricAvgRtt');
+      const rttHistory = [];
+
+      engine = new HybridVoiceEngine({
+        apiKey: geminiApiKeyInput.value.trim() || DEFAULT_API_KEY,
+        model: getActiveModel(),
+        inputMode: inputModeSelect.value,
+        ttsEngine: ttsEngineSelect.value,
+        googleLang: googleVoiceSelect.value,
+        speechRate: parseFloat(voiceRateSelect.value) || 1.25,
+        geminiVoice: geminiVoiceSelect.value,
+        systemInstruction: systemPromptEditor.value,
+        onStatusChange: updateStatus,
+        onInterimSpeech: (t) => {
+          interimCapsule.style.display = 'flex';
+          interimText.innerText = `"${t}"`;
+        },
+        onFinalSpeech: (t, isStreaming = false) => {
+          interimCapsule.style.display = 'none';
+          currentUserMsgBubble = appendMessage('user', t, isStreaming);
+        },
+        onUserTranscription: (transcriptionText, isFinal = false) => {
+          if (currentUserMsgBubble) {
+            currentUserMsgBubble.innerText = transcriptionText;
+            chatViewport.scrollTop = chatViewport.scrollHeight;
+            if (isFinal) {
+              conversationTurns.push({ role: 'user', text: transcriptionText });
+              metricTurns.innerText = conversationTurns.length;
+              generateReportBtn.disabled = conversationTurns.length < 2;
+              currentUserMsgBubble = null;
+            }
+          }
+        },
+        onStreamChunk: (txt) => {
+          if (!currentStreamingMsgBubble) currentStreamingMsgBubble = appendMessage('ai', txt, true);
+          else { currentStreamingMsgBubble.innerText = txt; chatViewport.scrollTop = chatViewport.scrollHeight; }
+        },
+        onResponseComplete: (finalReply) => {
+          if (currentStreamingMsgBubble) {
+            currentStreamingMsgBubble.innerText = finalReply;
+            currentStreamingMsgBubble = null;
+          }
+          conversationTurns.push({ role: 'ai', text: finalReply });
+          metricTurns.innerText = conversationTurns.length;
+          generateReportBtn.disabled = conversationTurns.length < 2;
+        },
+        onError: (err) => { showToast(err, 'error'); updateStatus('IDLE'); },
+        onMetricsUpdate: (m) => {
+          if (m.sttLatency !== undefined) metricStt.innerText = `${m.sttLatency} ms`;
+          if (m.ttft !== undefined) metricTtft.innerText = `${m.ttft} ms`;
+          if (m.genTime !== undefined) metricGen.innerText = `${m.genTime} ms`;
+          if (m.ttsDelay !== undefined) metricTts.innerText = `${m.ttsDelay} ms`;
+          if (m.totalRtt !== undefined) {
+            metricRtt.innerText = `${m.totalRtt} ms`;
+            rttHistory.push(m.totalRtt);
+            const avg = Math.round(rttHistory.reduce((a, b) => a + b, 0) / rttHistory.length);
+            metricAvgRtt.innerText = `${avg} ms`;
+
+            if (m.totalRtt < 1200) {
+              rttBadge.className = 'rtt-badge fast';
+              rttBadge.innerText = '⚡ Ultra Fast';
+            } else if (m.totalRtt < 2500) {
+              rttBadge.className = 'rtt-badge moderate';
+              rttBadge.innerText = '✓ Good Speed';
+            } else {
+              rttBadge.className = 'rtt-badge';
+              rttBadge.innerText = 'Normal';
+            }
+
+            // Visual Timeline Breakdown Bar
+            if (m.genTime && m.ttsDelay) {
+              timelineBarWrap.style.display = 'block';
+              const totalProcessing = m.genTime + m.ttsDelay;
+              timelineBarTotal.innerText = `${totalProcessing} ms total`;
+              const llmPercent = Math.max(15, Math.min(85, Math.round((m.genTime / totalProcessing) * 100)));
+              segLlm.style.width = `${llmPercent}%`;
+              segTts.style.width = `${100 - llmPercent}%`;
+            }
+          }
+        }
+      });
+
+      // Events
+      geminiApiKeyInput.addEventListener('input', (e) => {
+        const k = e.target.value.trim();
+        localStorage.setItem('utkio_gemini_key', k);
+        if (engine) engine.apiKey = k;
+        apiStatusBadge.className = k ? 'status-pill status-ready' : 'status-pill status-missing';
+        apiStatusBadge.innerText = k ? 'Key Set ✓' : 'Key Needed';
+      });
+
+      toggleKeyVisibilityBtn.addEventListener('click', () => {
+        geminiApiKeyInput.type = geminiApiKeyInput.type === 'password' ? 'text' : 'password';
+      });
+
+      modelSelect.addEventListener('change', () => {
+        customModelGroup.style.display = modelSelect.value === 'custom' ? 'block' : 'none';
+        if (engine) engine.model = getActiveModel();
+      });
+
+      customModelNameInput.addEventListener('input', () => {
+        if (engine) engine.model = getActiveModel();
+      });
+
+      inputModeSelect.addEventListener('change', () => {
+        if (engine) engine.inputMode = inputModeSelect.value;
+        showToast(`Speech Engine set to: ${inputModeSelect.options[inputModeSelect.selectedIndex].text}`);
+      });
+
+      ttsEngineSelect.addEventListener('change', () => {
+        const mode = ttsEngineSelect.value;
+        googleVoiceGroup.style.display = mode === 'google_indian' ? 'block' : 'none';
+        geminiVoiceGroup.style.display = mode === 'gemini_native' ? 'block' : 'none';
+        browserVoiceGroup.style.display = mode === 'browser_tts' ? 'block' : 'none';
+        if (engine) engine.ttsEngine = mode;
+        showToast(`Voice Output: ${ttsEngineSelect.options[ttsEngineSelect.selectedIndex].text}`);
+      });
+
+      googleVoiceSelect.addEventListener('change', () => {
+        if (engine) engine.googleLang = googleVoiceSelect.value;
+        showToast(`Google Voice set to: ${googleVoiceSelect.value}`);
+      });
+
+      voiceRateSelect.addEventListener('change', () => {
+        if (engine) engine.speechRate = parseFloat(voiceRateSelect.value) || 1.25;
+        showToast(`Speech Speed set to: ${voiceRateSelect.options[voiceRateSelect.selectedIndex].text}`);
+      });
+
+      geminiVoiceSelect.addEventListener('change', () => {
+        if (engine) engine.geminiVoice = geminiVoiceSelect.value;
+        showToast(`AI Voice Persona set to: ${geminiVoiceSelect.value}`);
+      });
+
+      previewVoiceBtn.addEventListener('click', () => {
+        if (!engine) return;
+        const sampleText = "Hello! Main aapka AI English Coach hoon. Aaj hum natural English fluency ki practice karenge!";
+        showToast("▶️ Playing Voice Sample Preview...");
+        engine.speak(sampleText);
+      });
+
+      ttsVoiceSelect.addEventListener('change', () => {
+        const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+        const chosen = voices.find(v => v.name === ttsVoiceSelect.value);
+        if (engine) engine.selectedVoice = chosen || null;
+      });
+
+      testApiBtn.addEventListener('click', async () => {
+        const k = geminiApiKeyInput.value.trim() || DEFAULT_API_KEY;
+        if (!k) return showToast('Enter API Key first!', 'error');
+        testApiBtn.innerText = 'Testing...';
+        testApiBtn.disabled = true;
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(getActiveModel())}:generateContent?key=${k}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Say "API OK"' }] }] })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error?.message || 'API Check Failed');
+          showToast('✓ Gemini API Key and Model validated!');
+        } catch (e) {
+          showToast(`Error: ${e.message}`, 'error');
+        } finally {
+          testApiBtn.innerText = '⚡ Validate API Key & Model';
+          testApiBtn.disabled = false;
+        }
+      });
+
+      scenarioChips.querySelectorAll('.chip').forEach(c => {
+        c.addEventListener('click', () => {
+          scenarioChips.querySelectorAll('.chip').forEach(ch => ch.classList.remove('active'));
+          c.classList.add('active');
+          currentScenario = c.dataset.scenario;
+          systemPromptEditor.value = SCENARIO_PRESETS[currentScenario].systemInstruction;
+          if (engine) engine.systemInstruction = systemPromptEditor.value;
+          showToast(`Scenario: ${c.querySelector('.chip-label').innerText}`);
+        });
+      });
+
+      systemPromptEditor.addEventListener('input', () => {
+        if (engine) engine.systemInstruction = systemPromptEditor.value;
+      });
+
+      resetPromptBtn.addEventListener('click', () => {
+        systemPromptEditor.value = SCENARIO_PRESETS[currentScenario].systemInstruction;
+        if (engine) engine.systemInstruction = systemPromptEditor.value;
+        showToast('Reset system instructions.');
+      });
+
+      mainMicBtn.addEventListener('click', () => {
+        if (!engine) return;
+        if (engine.isListening) engine.stopListening();
+        else engine.startListening();
+      });
+
+      const handleSend = () => {
+        const val = textInput.value.trim();
+        if (!val) return;
+        textInput.value = '';
+        appendMessage('user', val);
+        if (engine) engine.sendTextToGemini(val);
+      };
+
+      sendTextBtn.addEventListener('click', handleSend);
+      textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSend(); });
+
+      stopTtsBtn.addEventListener('click', () => { if (engine) engine.stopSpeaking(); });
+
+      clearChatBtn.addEventListener('click', () => {
+        messagesStream.innerHTML = '';
+        if (welcomeBanner) welcomeBanner.style.display = 'block';
+        conversationTurns = [];
+        rttHistory.length = 0;
+        metricTurns.innerText = '0';
+        metricStt.innerText = '0 ms';
+        metricTtft.innerText = '0 ms';
+        metricGen.innerText = '0 ms';
+        metricTts.innerText = '0 ms';
+        metricRtt.innerText = '0 ms';
+        metricAvgRtt.innerText = '0 ms';
+        rttBadge.className = 'rtt-badge';
+        rttBadge.innerText = 'Ready';
+        timelineBarWrap.style.display = 'none';
+        generateReportBtn.disabled = true;
+        if (engine) { engine.history = []; engine.stopSpeaking(); }
+        showToast('Chat & Metrics cleared.');
+      });
+
+      generateReportBtn.addEventListener('click', async () => {
+        const k = geminiApiKeyInput.value.trim() || DEFAULT_API_KEY;
+        if (!k) return showToast('API key required for report generation.', 'error');
+        reportModal.style.display = 'flex';
+        reportLoading.style.display = 'flex';
+        reportContent.style.display = 'none';
+
+        const transcript = conversationTurns.map(t => `${t.role.toUpperCase()}: ${t.text}`).join('\n\n');
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(getActiveModel())}:generateContent?key=${k}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: `Transcript:\n${transcript}\n\nGenerate Hinglish report:` }] }],
+              systemInstruction: { parts: [{ text: HINGLISH_REPORT_PROMPT }] }
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error?.message || 'Report generation failed');
+          const markdown = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No report.';
+          lastReportMarkdown = markdown;
+
+          const formattedHtml = markdown
+            .replace(/### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/# (.*$)/gim, '<h1>$1</h1>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n\n/g, '<p></p>')
+            .replace(/\n/g, '<br>');
+
+          reportLoading.style.display = 'none';
+          reportContent.innerHTML = formattedHtml;
+          reportContent.style.display = 'block';
+        } catch (err) {
+          reportLoading.style.display = 'none';
+          reportContent.innerHTML = `<div style="color:var(--accent-red)">Error: ${err.message}</div>`;
+          reportContent.style.display = 'block';
+        }
+      });
+
+      const closeReport = () => { reportModal.style.display = 'none'; };
+      closeReportModalBtn.addEventListener('click', closeReport);
+      closeReportBtn2.addEventListener('click', closeReport);
+
+      copyReportBtn.addEventListener('click', () => {
+        if (lastReportMarkdown) {
+          navigator.clipboard.writeText(lastReportMarkdown);
+          showToast('✓ Markdown copied to clipboard!');
+        }
+      });
+
+      exportJsonBtn.addEventListener('click', () => {
+        const data = {
+          scenario: currentScenario,
+          model: getActiveModel(),
+          turns: conversationTurns,
+          report: lastReportMarkdown,
+          exportedAt: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `utkio_lab_session_${Date.now()}.json`;
+        a.click();
+        showToast('✓ Session JSON exported!');
+      });
+    });
+  </script>
+</body>
+
+</html>
