@@ -77,46 +77,61 @@ public class MainActivity extends BridgeActivity {
 
     private void initNativeSpeechRecognizer() {
         mainHandler.post(() -> {
-            if (SpeechRecognizer.isRecognitionAvailable(this)) {
-                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
-                speechRecognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-                speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-                speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN");
-                speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-IN");
-                speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "en-IN");
-                speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-                speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-                speechRecognizer.setRecognitionListener(new RecognitionListener() {
-                    @Override public void onReadyForSpeech(Bundle params) {}
-                    @Override public void onBeginningOfSpeech() {}
-                    @Override public void onRmsChanged(float rmsdB) {}
-                    @Override public void onBufferReceived(byte[] buffer) {}
-                    @Override public void onEndOfSpeech() {}
-                    @Override public void onEvent(int eventType, Bundle params) {}
-                    @Override
-                    public void onError(int error) {
-                        dispatchCustomEvent("stt-error", "{\"code\":" + error + "}");
-                    }
-                    @Override
-                    public void onResults(Bundle results) {
-                        ArrayList<String> matches = results.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION);
-                        if (matches != null && !matches.isEmpty()) {
-                            String text = escapeJson(matches.get(0));
-                            dispatchCustomEvent("stt-final", "{\"text\":\"" + text + "\"}");
+            try {
+                if (speechRecognizer != null) {
+                    try { speechRecognizer.destroy(); } catch (Exception ignored) {}
+                    speechRecognizer = null;
+                }
+                if (SpeechRecognizer.isRecognitionAvailable(this)) {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+                    speechRecognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                    speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                    speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN");
+                    speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-IN");
+                    speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+                    speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                    speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
+                    speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L);
+                    speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
+
+                    speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                        @Override public void onReadyForSpeech(Bundle params) {
+                            dispatchCustomEvent("stt-ready", "{}");
                         }
-                    }
-                    @Override
-                    public void onPartialResults(Bundle partialResults) {
-                        ArrayList<String> partials = partialResults.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION);
-                        if (partials != null && !partials.isEmpty()) {
-                            String text = escapeJson(partials.get(0));
-                            dispatchCustomEvent("stt-partial", "{\"text\":\"" + text + "\"}");
+                        @Override public void onBeginningOfSpeech() {}
+                        @Override public void onRmsChanged(float rmsdB) {}
+                        @Override public void onBufferReceived(byte[] buffer) {}
+                        @Override public void onEndOfSpeech() {}
+                        @Override public void onEvent(int eventType, Bundle params) {}
+                        @Override
+                        public void onError(int error) {
+                            dispatchCustomEvent("stt-error", "{\"code\":" + error + "}");
                         }
-                    }
-                });
+                        @Override
+                        public void onResults(Bundle results) {
+                            ArrayList<String> matches = results.getStringArrayList(
+                                SpeechRecognizer.RESULTS_RECOGNITION);
+                            if (matches != null && !matches.isEmpty()) {
+                                String text = escapeJson(matches.get(0));
+                                dispatchCustomEvent("stt-final", "{\"text\":\"" + text + "\"}");
+                            } else {
+                                dispatchCustomEvent("stt-final", "{\"text\":\"\"}");
+                            }
+                        }
+                        @Override
+                        public void onPartialResults(Bundle partialResults) {
+                            ArrayList<String> partials = partialResults.getStringArrayList(
+                                SpeechRecognizer.RESULTS_RECOGNITION);
+                            if (partials != null && !partials.isEmpty()) {
+                                String text = escapeJson(partials.get(0));
+                                dispatchCustomEvent("stt-partial", "{\"text\":\"" + text + "\"}");
+                            }
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
     }
@@ -146,9 +161,17 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void startListening() {
             mainHandler.post(() -> {
-                if (speechRecognizer != null && speechRecognizerIntent != null) {
-                    try { speechRecognizer.startListening(speechRecognizerIntent); }
-                    catch (Exception e) { e.printStackTrace(); }
+                try {
+                    if (speechRecognizer == null || speechRecognizerIntent == null) {
+                        initNativeSpeechRecognizer();
+                    }
+                    if (speechRecognizer != null && speechRecognizerIntent != null) {
+                        speechRecognizer.cancel();
+                        speechRecognizer.startListening(speechRecognizerIntent);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    dispatchCustomEvent("stt-error", "{\"code\":-1}");
                 }
             });
         }
@@ -156,9 +179,20 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void stopListening() {
             mainHandler.post(() -> {
-                if (speechRecognizer != null) {
-                    try { speechRecognizer.stopListening(); }
-                    catch (Exception e) { e.printStackTrace(); }
+                try {
+                    if (speechRecognizer != null) {
+                        speechRecognizer.stopListening();
+                    }
+                } catch (Exception e) { e.printStackTrace(); }
+            });
+        }
+
+        @JavascriptInterface
+        public void speakText(String text, String utteranceId) {
+            mainHandler.post(() -> {
+                if (textToSpeech != null && isTtsReady && text != null && !text.trim().isEmpty()) {
+                    String uid = (utteranceId != null && !utteranceId.isEmpty()) ? utteranceId : ("utt_" + System.currentTimeMillis());
+                    textToSpeech.speak(text, TextToSpeech.QUEUE_ADD, null, uid);
                 }
             });
         }
@@ -192,7 +226,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
-        if (speechRecognizer != null) speechRecognizer.destroy();
+        if (speechRecognizer != null) {
+            speechRecognizer.cancel();
+            speechRecognizer.destroy();
+        }
         if (textToSpeech != null) { textToSpeech.stop(); textToSpeech.shutdown(); }
         super.onDestroy();
     }

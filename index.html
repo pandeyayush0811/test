@@ -680,8 +680,10 @@ CRITICAL SPOKEN AUDIO RULES:
     const modalSaveBtn = document.getElementById('modalSaveBtn');
     const modalCloseBtn = document.getElementById('modalCloseBtn');
 
-    // Engine & State
-    const hasAndroidNativeBridge = typeof window.UtkioNativeBridge !== 'undefined';
+    // Engine & State (Dynamic Bridge Resolver to eliminate init race conditions)
+    function getNativeBridge() {
+      return typeof window.UtkioNativeBridge !== 'undefined' ? window.UtkioNativeBridge : null;
+    }
     let apiKey = localStorage.getItem('utkio_gemini_api_key') || '';
     let state = 'IDLE'; // IDLE | LISTENING | THINKING | SPEAKING
     let conversationHistory = [];
@@ -717,7 +719,7 @@ CRITICAL SPOKEN AUDIO RULES:
     });
 
     function initEngineMode() {
-      if (hasAndroidNativeBridge) {
+      if (getNativeBridge()) {
         engineLabel.textContent = 'Android Native Bridge Active (0ms On-Device)';
         setupAndroidNativeListeners();
       } else {
@@ -757,15 +759,35 @@ CRITICAL SPOKEN AUDIO RULES:
         }
       });
 
-      // 3. Native STT Error
-      window.addEventListener('stt-error', (e) => {
-        console.warn('Android STT Error:', e.detail);
-        if (state === 'LISTENING') {
-          setState('IDLE');
+      // 3. Native STT Ready (SpeechRecognizer is listening)
+      window.addEventListener('stt-ready', () => {
+        if (state !== 'LISTENING') {
+          setState('LISTENING');
         }
       });
 
-      // 4. Native Android TTS Utterance Completed
+      // 4. Native STT Error (Atomic Error Reconciliation - Purges orphan interim bubble)
+      window.addEventListener('stt-error', (e) => {
+        const code = (e.detail && e.detail.code) != null ? e.detail.code : -1;
+        console.warn('Android STT Error:', code, e.detail);
+        if (currentUserRow) {
+          const lineEl = currentUserRow.querySelector('.line.user');
+          if (lineEl && (lineEl.classList.contains('interim') || lineEl.textContent.trim() === 'Listening...')) {
+            currentUserRow.remove();
+            currentUserRow = null;
+          }
+        }
+        setState('IDLE');
+        if (code === 7 || code === 6) {
+          statusText.textContent = 'No speech heard. Tap mic to talk.';
+        } else if (code === 9) {
+          statusText.textContent = 'Microphone permission needed.';
+        } else {
+          statusText.textContent = 'Could not catch audio (code ' + code + '). Tap mic to try again.';
+        }
+      });
+
+      // 5. Native Android TTS Utterance Completed
       window.addEventListener('tts-done', (e) => {
         playNextSentence();
       });
@@ -810,14 +832,23 @@ CRITICAL SPOKEN AUDIO RULES:
 
         webRecognition.onerror = (e) => {
           console.warn('Web STT Error:', e.error);
+          if (currentUserRow) {
+            const lineEl = currentUserRow.querySelector('.line.user');
+            if (lineEl && (lineEl.classList.contains('interim') || lineEl.textContent.trim() === 'Listening...')) {
+              currentUserRow.remove();
+              currentUserRow = null;
+            }
+          }
           setState('IDLE');
+          statusText.textContent = 'Could not catch audio. Tap mic to try again.';
         };
 
         webRecognition.onend = () => {
           if (currentUserRow) {
             const lineEl = currentUserRow.querySelector('.line.user');
             const promptText = lineEl.textContent.trim();
-            if (promptText && !lineEl.classList.contains('interim')) {
+            if (promptText && promptText !== 'Listening...') {
+              lineEl.classList.remove('interim');
               streamGeminiFlash(promptText);
             } else {
               currentUserRow.remove();
@@ -962,15 +993,29 @@ CRITICAL SPOKEN AUDIO RULES:
         return;
       }
 
-      stopAllAudio();
+      // Stop speech playback and abort pending LLM requests without triggering recognizer stop collision
+      if (activeAbortController) {
+        activeAbortController.abort();
+        activeAbortController = null;
+      }
+      const bridge = getNativeBridge();
+      if (bridge) {
+        try { bridge.stopSpeaking(); } catch (e) { }
+      }
+      if (webSynth) {
+        webSynth.cancel();
+      }
+      sentenceQueue = [];
+      isSpeakingQueue = false;
+      sentenceBuffer = '';
 
-      if (hasAndroidNativeBridge) {
+      if (bridge) {
         startSessionTimer();
         setState('LISTENING');
         removeEmptyPlaceholder();
         createUserMessageRow();
         try {
-          window.UtkioNativeBridge.startListening();
+          bridge.startListening();
         } catch (err) {
           console.warn('Native startListening failed:', err);
         }
@@ -980,8 +1025,9 @@ CRITICAL SPOKEN AUDIO RULES:
     }
 
     function stopListening() {
-      if (hasAndroidNativeBridge) {
-        try { window.UtkioNativeBridge.stopListening(); } catch (e) { }
+      const bridge = getNativeBridge();
+      if (bridge) {
+        try { bridge.stopListening(); } catch (e) { }
       } else if (webRecognition) {
         try { webRecognition.stop(); } catch (e) { }
       }
@@ -993,8 +1039,9 @@ CRITICAL SPOKEN AUDIO RULES:
         activeAbortController.abort();
         activeAbortController = null;
       }
-      if (hasAndroidNativeBridge) {
-        try { window.UtkioNativeBridge.stopSpeaking(); } catch (e) { }
+      const bridge = getNativeBridge();
+      if (bridge) {
+        try { bridge.stopSpeaking(); } catch (e) { }
       }
       if (webSynth) {
         webSynth.cancel();
@@ -1055,6 +1102,8 @@ CRITICAL SPOKEN AUDIO RULES:
     // ─────────────────────────────────────────────────────────────────────────────
     // Gemini Flash Streaming (gemini-3.1-flash-lite)
     // ─────────────────────────────────────────────────────────────────────────────
+    const MAX_HISTORY_TURNS = 12; // Bounded sliding window: 6 user turns + 6 model turns
+
     async function streamGeminiFlash(userText) {
       if (!apiKey) return;
 
@@ -1077,8 +1126,11 @@ CRITICAL SPOKEN AUDIO RULES:
 
       activeAbortController = new AbortController();
 
+      // Sliding window to bound token cost and memory accumulation
+      const boundedHistory = conversationHistory.slice(-MAX_HISTORY_TURNS);
+
       const payload = {
-        contents: conversationHistory,
+        contents: boundedHistory,
         systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
         generationConfig: {
           maxOutputTokens: 200,
@@ -1208,8 +1260,15 @@ CRITICAL SPOKEN AUDIO RULES:
     function playNextSentence() {
       if (!sentenceQueue.length) {
         isSpeakingQueue = false;
-        if (state === 'SPEAKING') {
-          setState('IDLE');
+        setState('IDLE');
+
+        // Hands-Free VAD Auto-Rearm Loop: auto-listen for next user turn after natural conversational pause
+        if (isSessionStarted && state !== 'LISTENING') {
+          setTimeout(() => {
+            if (state === 'IDLE') {
+              startListening();
+            }
+          }, 350);
         }
         return;
       }
@@ -1221,9 +1280,10 @@ CRITICAL SPOKEN AUDIO RULES:
       utteranceCounter++;
       const currentUtteranceId = 'utt_' + utteranceCounter;
 
-      if (hasAndroidNativeBridge) {
+      const bridge = getNativeBridge();
+      if (bridge) {
         try {
-          window.UtkioNativeBridge.speakText(text, currentUtteranceId);
+          bridge.speakText(text, currentUtteranceId);
         } catch (err) {
           console.warn('Native speakText failed:', err);
           playNextSentence();
