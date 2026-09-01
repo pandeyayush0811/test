@@ -1,4 +1,4 @@
-﻿package com.utkio.lab;
+package com.utkio.lab;
 
 import android.Manifest;
 import android.content.Intent;
@@ -36,10 +36,8 @@ public class MainActivity extends BridgeActivity {
         initNativeSpeechRecognizer();
     }
 
-    // INDUSTRY FIX: Inject bridge AFTER Capacitor WebView is fully ready.
-    // onCreate() is too early. onStart() fires after BridgeActivity WebView setup.
     @Override
-    protected void onStart() {
+    public void onStart() {
         super.onStart();
         injectNativeBridge();
     }
@@ -52,7 +50,6 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    // Native TTS fires "tts-done" CustomEvent when utterance completes
     private void initNativeTTS() {
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -62,28 +59,22 @@ public class MainActivity extends BridgeActivity {
                 }
                 textToSpeech.setSpeechRate(1.35f);
                 textToSpeech.setPitch(1.05f);
-
                 textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String utteranceId) {}
-
                     @Override
                     public void onDone(String utteranceId) {
-                        // INDUSTRY PATTERN: fire DOM CustomEvent, JS listens for this
                         dispatchCustomEvent("tts-done", "{\"utteranceId\":\"" + utteranceId + "\"}");
                     }
-
                     @Override
                     public void onError(String utteranceId) {
                         dispatchCustomEvent("tts-done", "{\"utteranceId\":\"" + utteranceId + "\",\"error\":true}");
                     }
                 });
-
                 isTtsReady = true;
             }
         });
     }
 
-    // Native STT fires "stt-final" and "stt-partial" CustomEvents
     private void initNativeSpeechRecognizer() {
         mainHandler.post(() -> {
             if (SpeechRecognizer.isRecognitionAvailable(this)) {
@@ -96,7 +87,6 @@ public class MainActivity extends BridgeActivity {
                 speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "en-IN");
                 speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
                 speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-
                 speechRecognizer.setRecognitionListener(new RecognitionListener() {
                     @Override public void onReadyForSpeech(Bundle params) {}
                     @Override public void onBeginningOfSpeech() {}
@@ -104,12 +94,10 @@ public class MainActivity extends BridgeActivity {
                     @Override public void onBufferReceived(byte[] buffer) {}
                     @Override public void onEndOfSpeech() {}
                     @Override public void onEvent(int eventType, Bundle params) {}
-
                     @Override
                     public void onError(int error) {
                         dispatchCustomEvent("stt-error", "{\"code\":" + error + "}");
                     }
-
                     @Override
                     public void onResults(Bundle results) {
                         ArrayList<String> matches = results.getStringArrayList(
@@ -119,7 +107,6 @@ public class MainActivity extends BridgeActivity {
                             dispatchCustomEvent("stt-final", "{\"text\":\"" + text + "\"}");
                         }
                     }
-
                     @Override
                     public void onPartialResults(Bundle partialResults) {
                         ArrayList<String> partials = partialResults.getStringArrayList(
@@ -134,7 +121,6 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
-    // Inject JS->Java bridge on window.UtkioNativeBridge
     private void injectNativeBridge() {
         mainHandler.post(() -> {
             try {
@@ -142,29 +128,20 @@ public class MainActivity extends BridgeActivity {
                 if (webView != null) {
                     webView.addJavascriptInterface(new UtkioNativeInterface(), "UtkioNativeBridge");
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            } catch (Exception e) { e.printStackTrace(); }
         });
     }
 
-    // INDUSTRY PATTERN: Java to JS via DOM CustomEvent (decoupled and reliable)
     private void dispatchCustomEvent(String eventName, String jsonDetail) {
-        String js = "window.dispatchEvent(new CustomEvent('" + eventName + "', "
-                  + "{ detail: " + jsonDetail + " }));";
+        String js = "window.dispatchEvent(new CustomEvent('" + eventName + "', { detail: " + jsonDetail + " }));";
         mainHandler.post(() -> {
             try {
                 WebView webView = getBridge().getWebView();
-                if (webView != null) {
-                    webView.evaluateJavascript(js, null);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+                if (webView != null) webView.evaluateJavascript(js, null);
+            } catch (Exception e) { e.printStackTrace(); }
         });
     }
 
-    // JS to Java Interface (JS calls these)
     public class UtkioNativeInterface {
         @JavascriptInterface
         public void startListening() {
@@ -186,7 +163,6 @@ public class MainActivity extends BridgeActivity {
             });
         }
 
-        // speakChunk takes text + rate; completion fires "tts-done" CustomEvent
         @JavascriptInterface
         public void speakChunk(String text, float rate) {
             mainHandler.post(() -> {
@@ -210,11 +186,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     private String escapeJson(String text) {
-        return text.replace("\\", "\\\\")
-                   .replace("\"", "\\\"")
-                   .replace("\n", "\\n")
-                   .replace("\r", "\\r")
-                   .replace("\t", "\\t");
+        return text.replace("\\", "\\\\").replace("\"", "\\\"")
+                   .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
     }
 
     @Override
