@@ -760,8 +760,10 @@ CRITICAL SPOKEN AUDIO RULES:
     });
 
     function initEngineMode() {
-      if (getNativeBridge()) {
+      const bridge = getNativeBridge();
+      if (bridge) {
         engineLabel.textContent = 'Android Native Bridge Active (0ms On-Device)';
+        try { bridge.setVoiceConfig(selectedVoice, selectedRate); } catch (e) {}
         setupAndroidNativeListeners();
       } else {
         engineLabel.textContent = 'Web Engine Mode (Browser Preview)';
@@ -928,6 +930,10 @@ CRITICAL SPOKEN AUDIO RULES:
         if (modalRateSelect) {
           selectedRate = modalRateSelect.value;
           localStorage.setItem('utkio_edge_rate', selectedRate);
+        }
+        const bridge = getNativeBridge();
+        if (bridge) {
+          try { bridge.setVoiceConfig(selectedVoice, selectedRate); } catch (e) {}
         }
         closeSettingsModal();
         statusText.textContent = 'Settings saved. Tap mic to talk.';
@@ -1398,7 +1404,7 @@ CRITICAL SPOKEN AUDIO RULES:
       });
     }
 
-    async function playNextSentence() {
+    function playNextSentence() {
       if (!sentenceQueue.length) {
         isSpeakingQueue = false;
         setState('IDLE');
@@ -1421,25 +1427,35 @@ CRITICAL SPOKEN AUDIO RULES:
       utteranceCounter++;
       const currentUtteranceId = 'utt_' + utteranceCounter;
 
-      try {
-        // 1. Primary Studio Human Neural Voice: User-Selected Edge Voice & Rate
-        const audioUrl = await generateEdgeTTSAudio(text, selectedVoice, selectedRate);
-        if (!isSpeakingQueue) return; // Barge-in interruption occurred
-
-        const audio = new Audio(audioUrl);
-        currentAudioObject = audio;
-        audio.onended = () => {
-          currentAudioObject = null;
+      const bridge = getNativeBridge();
+      if (bridge) {
+        try {
+          bridge.speakText(text, currentUtteranceId);
+        } catch (err) {
+          console.warn('Native speakText failed:', err);
           playNextSentence();
-        };
-        audio.onerror = () => {
-          currentAudioObject = null;
-          fallbackPlaySentence(text, currentUtteranceId);
-        };
-        await audio.play();
-      } catch (err) {
-        console.warn('Edge Neural TTS streaming unavailable, using native fallback:', err);
-        fallbackPlaySentence(text, currentUtteranceId);
+        }
+      } else {
+        // Browser Preview Mode: Generate Edge Audio Stream
+        generateEdgeTTSAudio(text, selectedVoice, selectedRate)
+          .then(audioUrl => {
+            if (!isSpeakingQueue) return;
+            const audio = new Audio(audioUrl);
+            currentAudioObject = audio;
+            audio.onended = () => {
+              currentAudioObject = null;
+              playNextSentence();
+            };
+            audio.onerror = () => {
+              currentAudioObject = null;
+              fallbackPlaySentence(text, currentUtteranceId);
+            };
+            audio.play().catch(() => fallbackPlaySentence(text, currentUtteranceId));
+          })
+          .catch(err => {
+            console.warn('Browser Edge TTS fallback:', err);
+            fallbackPlaySentence(text, currentUtteranceId);
+          });
       }
     }
 

@@ -4,8 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
-import android.media.AudioFormat;
-import android.media.AudioTrack;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,26 +13,27 @@ import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.speech.tts.Voice;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.nio.LongBuffer;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-// Microsoft ONNX Runtime Android SDK
-import ai.onnxruntime.OnnxTensor;
-import ai.onnxruntime.OrtEnvironment;
-import ai.onnxruntime.OrtSession;
+import java.util.concurrent.TimeUnit;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+import okio.ByteString;
 
 public class MainActivity extends BridgeActivity {
     private static final int PERMISSION_REQUEST_CODE = 101;
@@ -43,22 +43,27 @@ public class MainActivity extends BridgeActivity {
     private boolean isTtsReady = false;
     private Handler mainHandler;
     private ExecutorService ttsExecutor;
+    private OkHttpClient okHttpClient;
 
-    // On-Device Piper VITS Neural Engine References
-    private OrtEnvironment ortEnvironment = null;
-    private OrtSession ortSession = null;
-    private boolean isNeuralReady = false;
-    private volatile boolean isPlayingNeural = false;
-    private AudioTrack activeAudioTrack = null;
+    // Active Speech & Playback State
+    private String selectedVoice = "en-IN-NeerjaNeural";
+    private String selectedRate = "+35%";
+    private volatile boolean isSpeakingActive = false;
+    private WebSocket activeWebSocket = null;
+    private MediaPlayer mediaPlayer = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mainHandler = new Handler(Looper.getMainLooper());
         ttsExecutor = Executors.newSingleThreadExecutor();
+        okHttpClient = new OkHttpClient.Builder()
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .build();
+
         checkAudioPermissions();
         initNativeTTS();
-        initPiperNeuralEngine();
         initNativeSpeechRecognizer();
     }
 
@@ -77,32 +82,12 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Tier 2 Fallback: Native Android TextToSpeech Engine with Hindi/en-IN natural voice configuration
+     * Tier 2 Fallback: Native Android TextToSpeech Engine with Dynamic Voice Matching
      */
     private void initNativeTTS() {
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
-                // Primary: Hindi India locale for natural Hinglish phonetics
-                Locale hindiLocale = new Locale("hi", "IN");
-                int result = textToSpeech.setLanguage(hindiLocale);
-                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    textToSpeech.setLanguage(new Locale("en", "IN"));
-                }
-
-                // High-quality voice filter
-                try {
-                    if (textToSpeech.getVoices() != null) {
-                        for (android.speech.tts.Voice voice : textToSpeech.getVoices()) {
-                            if (voice.getLocale() != null && "hi".equals(voice.getLocale().getLanguage())) {
-                                if (voice.getName().contains("network") || voice.getQuality() >= 400) {
-                                    textToSpeech.setVoice(voice);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                } catch (Exception ignored) {}
-
+                updateNativeTtsVoice(selectedVoice);
                 textToSpeech.setSpeechRate(1.35f);
                 textToSpeech.setPitch(1.05f);
                 textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
@@ -121,45 +106,35 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
-    /**
-     * Tier 1 Primary: Embedded On-Device Piper VITS Neural Engine via Microsoft ONNX Runtime Mobile
-     */
-    private void initPiperNeuralEngine() {
-        ttsExecutor.execute(() -> {
-            try {
-                ortEnvironment = OrtEnvironment.getEnvironment();
-                
-                // Check if model file exists in assets
-                InputStream modelStream = null;
-                try {
-                    modelStream = getAssets().open("piper-tts/model.onnx");
-                } catch (Exception ignored) {
-                    try {
-                        modelStream = getAssets().open("vits-models/model.onnx");
-                    } catch (Exception ignored2) {}
-                }
-
-                if (modelStream != null) {
-                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-                    byte[] data = new byte[16384];
-                    int nRead;
-                    while ((nRead = modelStream.read(data, 0, data.length)) != -1) {
-                        buffer.write(data, 0, nRead);
-                    }
-                    buffer.flush();
-                    byte[] modelBytes = buffer.toByteArray();
-                    modelStream.close();
-
-                    OrtSession.SessionOptions opts = new OrtSession.SessionOptions();
-                    opts.setIntraOpNumThreads(2);
-                    ortSession = ortEnvironment.createSession(modelBytes, opts);
-                    isNeuralReady = true;
-                }
-            } catch (Throwable t) {
-                // Safe progressive fallback to native TextToSpeech
-                isNeuralReady = false;
+    private void updateNativeTtsVoice(String voiceName) {
+        if (textToSpeech == null) return;
+        boolean isMale = voiceName.contains("Prabhat") || voiceName.contains("Madhur") || voiceName.contains("Guy");
+        boolean isHindi = voiceName.startsWith("hi-");
+        
+        Locale targetLocale = isHindi ? new Locale("hi", "IN") : new Locale("en", "IN");
+        try {
+            int res = textToSpeech.setLanguage(targetLocale);
+            if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+                textToSpeech.setLanguage(new Locale("en", "IN"));
             }
-        });
+        } catch (Exception ignored) {}
+
+        try {
+            if (textToSpeech.getVoices() != null) {
+                for (Voice voice : textToSpeech.getVoices()) {
+                    if (voice.getLocale() != null && targetLocale.getLanguage().equals(voice.getLocale().getLanguage())) {
+                        String name = voice.getName().toLowerCase();
+                        if (isMale && (name.contains("male") || name.contains("#male") || voice.getQuality() >= 300)) {
+                            textToSpeech.setVoice(voice);
+                            return;
+                        } else if (!isMale && (name.contains("female") || name.contains("#female") || voice.getQuality() >= 300)) {
+                            textToSpeech.setVoice(voice);
+                            return;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     private void initNativeSpeechRecognizer() {
@@ -246,6 +221,15 @@ public class MainActivity extends BridgeActivity {
 
     public class UtkioNativeInterface {
         @JavascriptInterface
+        public void setVoiceConfig(String voiceName, String rate) {
+            mainHandler.post(() -> {
+                if (voiceName != null && !voiceName.isEmpty()) selectedVoice = voiceName;
+                if (rate != null && !rate.isEmpty()) selectedRate = rate;
+                updateNativeTtsVoice(selectedVoice);
+            });
+        }
+
+        @JavascriptInterface
         public void startListening() {
             mainHandler.post(() -> {
                 try {
@@ -277,19 +261,7 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void speakText(String text, String utteranceId) {
             final String uid = (utteranceId != null && !utteranceId.isEmpty()) ? utteranceId : ("utt_" + System.currentTimeMillis());
-            
-            if (isNeuralReady && ortSession != null && ortEnvironment != null) {
-                ttsExecutor.execute(() -> {
-                    try {
-                        isPlayingNeural = true;
-                        synthesizeAndPlayNeural(text, uid);
-                    } catch (Throwable t) {
-                        fallbackNativeSpeak(text, uid);
-                    }
-                });
-            } else {
-                fallbackNativeSpeak(text, uid);
-            }
+            speakWithEdgeTTS(text, selectedVoice, selectedRate, uid);
         }
 
         @JavascriptInterface
@@ -299,111 +271,132 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void stopSpeaking() {
-            isPlayingNeural = false;
-            if (activeAudioTrack != null) {
-                try {
-                    activeAudioTrack.pause();
-                    activeAudioTrack.flush();
-                    activeAudioTrack.stop();
-                    activeAudioTrack.release();
-                } catch (Exception ignored) {}
-                activeAudioTrack = null;
-            }
-            mainHandler.post(() -> {
-                if (textToSpeech != null && textToSpeech.isSpeaking()) {
-                    textToSpeech.stop();
-                }
-                dispatchCustomEvent("tts-stopped", "{}");
-            });
+            stopActivePlayback();
+            dispatchCustomEvent("tts-stopped", "{}");
         }
     }
 
-    private void synthesizeAndPlayNeural(String text, String utteranceId) {
-        try {
-            // Convert input text to phoneme id sequence
-            long[] phonemeIds = textToPhonemeSequence(text);
-            if (phonemeIds.length == 0) {
+    private void speakWithEdgeTTS(String text, String voice, String rate, String utteranceId) {
+        ttsExecutor.execute(() -> {
+            try {
+                stopActivePlayback();
+                isSpeakingActive = true;
+
+                String connectionId = UUID.randomUUID().toString().replace("-", "");
+                String requestId = UUID.randomUUID().toString().replace("-", "");
+                String token = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
+                String wsUrl = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=" + token + "&ConnectionId=" + connectionId;
+
+                Request request = new Request.Builder()
+                    .url(wsUrl)
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0")
+                    .addHeader("Origin", "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold")
+                    .addHeader("Pragma", "no-cache")
+                    .addHeader("Cache-Control", "no-cache")
+                    .build();
+
+                File tempAudioFile = new File(getCacheDir(), "edge_tts_" + System.currentTimeMillis() + ".mp3");
+                FileOutputStream fos = new FileOutputStream(tempAudioFile);
+
+                final Object lock = new Object();
+                final boolean[] completed = new boolean[]{false};
+                final boolean[] error = new boolean[]{false};
+
+                activeWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket, Response response) {
+                        String configMsg = "Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{\"context\":{\"synthesis\":{\"client\":{\"clientid\":\"" + connectionId + "\",\"version\":\"10.0.22621.1\",\"name\":\"edge\"}}}}\r\n";
+                        webSocket.send(configMsg);
+
+                        String cleanText = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+                        String ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='" + voice + "'><prosody pitch='+0Hz' rate='" + rate + "'>" + cleanText + "</prosody></voice></speak>";
+                        String ssmlMsg = "X-RequestId:" + requestId + "\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n" + ssml;
+                        webSocket.send(ssmlMsg);
+                    }
+
+                    @Override
+                    public void onMessage(WebSocket webSocket, String text) {
+                        if (text.contains("Path:turn.end")) {
+                            completed[0] = true;
+                            synchronized (lock) { lock.notifyAll(); }
+                        }
+                    }
+
+                    @Override
+                    public void onMessage(WebSocket webSocket, ByteString bytes) {
+                        byte[] data = bytes.toByteArray();
+                        if (data.length > 2) {
+                            int headerLength = ((data[0] & 0xFF) << 8) | (data[1] & 0xFF);
+                            if (data.length > 2 + headerLength) {
+                                try {
+                                    fos.write(data, 2 + headerLength, data.length - (2 + headerLength));
+                                } catch (IOException ignored) {}
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+                        error[0] = true;
+                        synchronized (lock) { lock.notifyAll(); }
+                    }
+                });
+
+                synchronized (lock) {
+                    if (!completed[0] && !error[0]) {
+                        lock.wait(3500);
+                    }
+                }
+
+                try { fos.close(); } catch (Exception ignored) {}
+
+                if (completed[0] && tempAudioFile.length() > 200 && isSpeakingActive) {
+                    playAudioFile(tempAudioFile, utteranceId);
+                } else {
+                    tempAudioFile.delete();
+                    fallbackNativeSpeak(text, utteranceId);
+                }
+            } catch (Exception e) {
                 fallbackNativeSpeak(text, utteranceId);
-                return;
             }
+        });
+    }
 
-            long[] shape = new long[]{1, phonemeIds.length};
-            OnnxTensor inputTensor = OnnxTensor.createTensor(ortEnvironment, LongBuffer.wrap(phonemeIds), shape);
-            OnnxTensor lengthTensor = OnnxTensor.createTensor(ortEnvironment, new long[]{phonemeIds.length});
-            OnnxTensor scalesTensor = OnnxTensor.createTensor(ortEnvironment, new float[]{0.667f, 1.0f, 0.8f}); // noise_scale, length_scale, noise_w
-
-            Map<String, OnnxTensor> inputs = new HashMap<>();
-            inputs.put("input", inputTensor);
-            inputs.put("input_lengths", lengthTensor);
-            inputs.put("scales", scalesTensor);
-
-            OrtSession.Result result = ortSession.run(inputs);
-            if (result.size() > 0 && isPlayingNeural) {
-                float[][][] outputAudio = (float[][][]) result.get(0).getValue();
-                if (outputAudio != null && outputAudio.length > 0 && outputAudio[0].length > 0) {
-                    float[] samples = outputAudio[0][0];
-                    playPcmStream(samples, 22050, utteranceId);
+    private void playAudioFile(File file, String utteranceId) {
+        mainHandler.post(() -> {
+            try {
+                if (!isSpeakingActive) {
+                    file.delete();
                     return;
                 }
-            }
-            fallbackNativeSpeak(text, utteranceId);
-        } catch (Exception e) {
-            fallbackNativeSpeak(text, utteranceId);
-        }
-    }
-
-    private long[] textToPhonemeSequence(String text) {
-        if (text == null || text.trim().isEmpty()) return new long[0];
-        // Clean and tokenize text
-        String clean = text.trim();
-        long[] seq = new long[clean.length() + 2];
-        seq[0] = 1L; // BOS
-        for (int i = 0; i < clean.length(); i++) {
-            seq[i + 1] = (long) (clean.charAt(i) % 256);
-        }
-        seq[seq.length - 1] = 2L; // EOS
-        return seq;
-    }
-
-    private void playPcmStream(float[] samples, int sampleRate, String utteranceId) {
-        try {
-            short[] pcm16 = new short[samples.length];
-            for (int i = 0; i < samples.length; i++) {
-                int val = Math.round(samples[i] * 32767.0f);
-                pcm16[i] = (short) Math.max(-32768, Math.min(32767, val));
-            }
-
-            int minBufferSize = AudioTrack.getMinBufferSize(
-                sampleRate,
-                AudioFormat.CHANNEL_OUT_MONO,
-                AudioFormat.ENCODING_PCM_16BIT
-            );
-
-            activeAudioTrack = new AudioTrack.Builder()
-                .setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                mediaPlayer = new MediaPlayer();
+                mediaPlayer.setAudioAttributes(new AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build())
-                .setAudioFormat(new AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(sampleRate)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                    .build())
-                .setBufferSizeInBytes(Math.max(minBufferSize, pcm16.length * 2))
-                .setTransferMode(AudioTrack.MODE_STREAM)
-                .build();
-
-            activeAudioTrack.play();
-            activeAudioTrack.write(pcm16, 0, pcm16.length);
-
-            if (isPlayingNeural) {
-                dispatchCustomEvent("tts-done", "{\"utteranceId\":\"" + utteranceId + "\"}");
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                    .build());
+                mediaPlayer.setDataSource(file.getAbsolutePath());
+                mediaPlayer.setOnCompletionListener(mp -> {
+                    mp.release();
+                    mediaPlayer = null;
+                    file.delete();
+                    isSpeakingActive = false;
+                    dispatchCustomEvent("tts-done", "{\"utteranceId\":\"" + utteranceId + "\"}");
+                });
+                mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                    mp.release();
+                    mediaPlayer = null;
+                    file.delete();
+                    isSpeakingActive = false;
+                    dispatchCustomEvent("tts-done", "{\"utteranceId\":\"" + utteranceId + "\",\"error\":true}");
+                    return true;
+                });
+                mediaPlayer.prepare();
+                mediaPlayer.start();
+            } catch (Exception e) {
+                file.delete();
+                fallbackNativeSpeak("", utteranceId);
             }
-        } catch (Exception e) {
-            fallbackNativeSpeak("", utteranceId);
-        } finally {
-            isPlayingNeural = false;
-        }
+        });
     }
 
     private void fallbackNativeSpeak(String text, String utteranceId) {
@@ -416,6 +409,27 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
+    private void stopActivePlayback() {
+        isSpeakingActive = false;
+        if (activeWebSocket != null) {
+            try { activeWebSocket.cancel(); } catch (Exception ignored) {}
+            activeWebSocket = null;
+        }
+        mainHandler.post(() -> {
+            if (mediaPlayer != null) {
+                try {
+                    if (mediaPlayer.isPlaying()) mediaPlayer.stop();
+                    mediaPlayer.reset();
+                    mediaPlayer.release();
+                } catch (Exception ignored) {}
+                mediaPlayer = null;
+            }
+            if (textToSpeech != null && textToSpeech.isSpeaking()) {
+                try { textToSpeech.stop(); } catch (Exception ignored) {}
+            }
+        });
+    }
+
     private String escapeJson(String text) {
         return text.replace("\\", "\\\\").replace("\"", "\\\"")
                    .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
@@ -423,19 +437,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
-        isPlayingNeural = false;
-        if (activeAudioTrack != null) {
-            try { activeAudioTrack.release(); } catch (Exception ignored) {}
-            activeAudioTrack = null;
-        }
-        if (ortSession != null) {
-            try { ortSession.close(); } catch (Exception ignored) {}
-            ortSession = null;
-        }
-        if (ortEnvironment != null) {
-            try { ortEnvironment.close(); } catch (Exception ignored) {}
-            ortEnvironment = null;
-        }
+        stopActivePlayback();
         if (ttsExecutor != null) {
             ttsExecutor.shutdownNow();
         }
