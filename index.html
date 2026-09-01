@@ -700,6 +700,7 @@ CRITICAL SPOKEN AUDIO RULES:
     let webRecognition = null;
     let webSynth = window.speechSynthesis;
     let selectedWebVoice = null;
+    let currentAudioObject = null; // Active HTML5 Audio stream for Edge Neural TTS
 
     // Session Timer
     let sessionSeconds = 0;
@@ -1039,6 +1040,13 @@ CRITICAL SPOKEN AUDIO RULES:
         activeAbortController.abort();
         activeAbortController = null;
       }
+      if (currentAudioObject) {
+        try {
+          currentAudioObject.pause();
+          currentAudioObject.src = '';
+        } catch (e) { }
+        currentAudioObject = null;
+      }
       const bridge = getNativeBridge();
       if (bridge) {
         try { bridge.stopSpeaking(); } catch (e) { }
@@ -1250,6 +1258,8 @@ CRITICAL SPOKEN AUDIO RULES:
     function enqueueSentenceForSpeech(text) {
       const clean = text.replace(/[\*\_#]/g, '').trim();
       if (!clean) return;
+      // Reject solitary punctuation or symbol-only utterances
+      if (!/[a-zA-Z0-9\u0900-\u097F]/.test(clean)) return;
 
       sentenceQueue.push(clean);
       if (!isSpeakingQueue) {
@@ -1257,7 +1267,88 @@ CRITICAL SPOKEN AUDIO RULES:
       }
     }
 
-    function playNextSentence() {
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Microsoft Edge Neural Studio TTS Streaming Client (en-IN-NeerjaNeural @ 1.35x)
+    // ─────────────────────────────────────────────────────────────────────────────
+    function generateEdgeTTSAudio(text, voice = 'en-IN-NeerjaNeural', rate = '+35%') {
+      return new Promise((resolve, reject) => {
+        const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+
+        const connectionId = uuid();
+        const requestId = uuid();
+        const token = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
+        const wsUrl = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=${token}&ConnectionId=${connectionId}`;
+
+        let ws;
+        try {
+          ws = new WebSocket(wsUrl);
+        } catch (e) {
+          return reject(e);
+        }
+        ws.binaryType = 'arraybuffer';
+
+        const audioChunks = [];
+        const cleanText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        let isCompleted = false;
+
+        ws.onopen = () => {
+          const configMsg = `Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{"context":{"synthesis":{"client":{"clientid":"${connectionId}","version":"10.0.22621.1","name":"edge"}}}}\r\n`;
+          ws.send(configMsg);
+
+          const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voice}'><prosody pitch='+0Hz' rate='${rate}'>${cleanText}</prosody></voice></speak>`;
+          const ssmlMsg = `X-RequestId:${requestId}\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n${ssml}`;
+          ws.send(ssmlMsg);
+        };
+
+        ws.onmessage = (event) => {
+          if (typeof event.data === 'string') {
+            if (event.data.includes('Path:turn.end')) {
+              isCompleted = true;
+              try { ws.close(); } catch (e) {}
+              if (audioChunks.length > 0) {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                resolve(URL.createObjectURL(audioBlob));
+              } else {
+                reject(new Error('Empty audio received'));
+              }
+            }
+          } else if (event.data instanceof ArrayBuffer) {
+            const data = new Uint8Array(event.data);
+            if (data.length > 2) {
+              const headerLength = (data[0] << 8) | data[1];
+              if (data.length > 2 + headerLength) {
+                const audioData = data.slice(2 + headerLength);
+                audioChunks.push(audioData);
+              }
+            }
+          }
+        };
+
+        ws.onerror = (err) => {
+          if (!isCompleted) {
+            try { ws.close(); } catch (e) {}
+            reject(err);
+          }
+        };
+
+        setTimeout(() => {
+          if (!isCompleted) {
+            try { ws.close(); } catch (e) {}
+            if (audioChunks.length > 0) {
+              const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+              resolve(URL.createObjectURL(audioBlob));
+            } else {
+              reject(new Error('Edge TTS timeout'));
+            }
+          }
+        }, 3500);
+      });
+    }
+
+    async function playNextSentence() {
       if (!sentenceQueue.length) {
         isSpeakingQueue = false;
         setState('IDLE');
@@ -1280,6 +1371,29 @@ CRITICAL SPOKEN AUDIO RULES:
       utteranceCounter++;
       const currentUtteranceId = 'utt_' + utteranceCounter;
 
+      try {
+        // 1. Primary Studio Human Neural Voice: en-IN-NeerjaNeural @ 1.35x speed
+        const audioUrl = await generateEdgeTTSAudio(text, 'en-IN-NeerjaNeural', '+35%');
+        if (!isSpeakingQueue) return; // Barge-in interruption occurred
+
+        const audio = new Audio(audioUrl);
+        currentAudioObject = audio;
+        audio.onended = () => {
+          currentAudioObject = null;
+          playNextSentence();
+        };
+        audio.onerror = () => {
+          currentAudioObject = null;
+          fallbackPlaySentence(text, currentUtteranceId);
+        };
+        await audio.play();
+      } catch (err) {
+        console.warn('Edge Neural TTS streaming unavailable, using native fallback:', err);
+        fallbackPlaySentence(text, currentUtteranceId);
+      }
+    }
+
+    function fallbackPlaySentence(text, currentUtteranceId) {
       const bridge = getNativeBridge();
       if (bridge) {
         try {
@@ -1291,7 +1405,7 @@ CRITICAL SPOKEN AUDIO RULES:
       } else if (webSynth) {
         const utterance = new SpeechSynthesisUtterance(text);
         if (selectedWebVoice) utterance.voice = selectedWebVoice;
-        utterance.rate = 1.30;
+        utterance.rate = 1.35;
         utterance.pitch = 1.02;
         utterance.onend = () => playNextSentence();
         utterance.onerror = () => playNextSentence();
