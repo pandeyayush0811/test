@@ -1,4 +1,4 @@
-package com.utkio.lab;
+﻿package com.utkio.lab;
 
 import android.Manifest;
 import android.content.Intent;
@@ -31,19 +31,28 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mainHandler = new Handler(Looper.getMainLooper());
-
         checkAudioPermissions();
         initNativeTTS();
         initNativeSpeechRecognizer();
+    }
+
+    // INDUSTRY FIX: Inject bridge AFTER Capacitor WebView is fully ready.
+    // onCreate() is too early. onStart() fires after BridgeActivity WebView setup.
+    @Override
+    protected void onStart() {
+        super.onStart();
         injectNativeBridge();
     }
 
     private void checkAudioPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_CODE);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this, new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_CODE);
         }
     }
 
+    // Native TTS fires "tts-done" CustomEvent when utterance completes
     private void initNativeTTS() {
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -51,22 +60,21 @@ public class MainActivity extends BridgeActivity {
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     textToSpeech.setLanguage(Locale.US);
                 }
-                // ⚡ 1.35x Conversational Speed Tuning for energetic coaching
                 textToSpeech.setSpeechRate(1.35f);
                 textToSpeech.setPitch(1.05f);
 
                 textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                    @Override
-                    public void onStart(String utteranceId) {}
+                    @Override public void onStart(String utteranceId) {}
 
                     @Override
                     public void onDone(String utteranceId) {
-                        dispatchJs("if (window.UtkioNativeBridge && window.UtkioNativeBridge.onTtsDone) window.UtkioNativeBridge.onTtsDone('" + utteranceId + "');");
+                        // INDUSTRY PATTERN: fire DOM CustomEvent, JS listens for this
+                        dispatchCustomEvent("tts-done", "{\"utteranceId\":\"" + utteranceId + "\"}");
                     }
 
                     @Override
                     public void onError(String utteranceId) {
-                        dispatchJs("if (window.UtkioNativeBridge && window.UtkioNativeBridge.onTtsDone) window.UtkioNativeBridge.onTtsDone('" + utteranceId + "');");
+                        dispatchCustomEvent("tts-done", "{\"utteranceId\":\"" + utteranceId + "\",\"error\":true}");
                     }
                 });
 
@@ -75,12 +83,14 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
+    // Native STT fires "stt-final" and "stt-partial" CustomEvents
     private void initNativeSpeechRecognizer() {
         mainHandler.post(() -> {
             if (SpeechRecognizer.isRecognitionAvailable(this)) {
                 speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
                 speechRecognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-                speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
                 speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN");
                 speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-IN");
                 speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "en-IN");
@@ -88,78 +98,80 @@ public class MainActivity extends BridgeActivity {
                 speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
 
                 speechRecognizer.setRecognitionListener(new RecognitionListener() {
-                    @Override
-                    public void onReadyForSpeech(Bundle params) {}
-
-                    @Override
-                    public void onBeginningOfSpeech() {}
-
-                    @Override
-                    public void onRmsChanged(float rmsdB) {}
-
-                    @Override
-                    public void onBufferReceived(byte[] buffer) {}
-
-                    @Override
-                    public void onEndOfSpeech() {}
+                    @Override public void onReadyForSpeech(Bundle params) {}
+                    @Override public void onBeginningOfSpeech() {}
+                    @Override public void onRmsChanged(float rmsdB) {}
+                    @Override public void onBufferReceived(byte[] buffer) {}
+                    @Override public void onEndOfSpeech() {}
+                    @Override public void onEvent(int eventType, Bundle params) {}
 
                     @Override
                     public void onError(int error) {
-                        String errMsg = "STT Error code: " + error;
-                        dispatchJs("if (window.UtkioNativeBridge && window.UtkioNativeBridge.onError) window.UtkioNativeBridge.onError('" + errMsg + "');");
+                        dispatchCustomEvent("stt-error", "{\"code\":" + error + "}");
                     }
 
                     @Override
                     public void onResults(Bundle results) {
-                        ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                        ArrayList<String> matches = results.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION);
                         if (matches != null && !matches.isEmpty()) {
-                            String finalTranscript = matches.get(0).replace("'", "\\'");
-                            dispatchJs("if (window.UtkioNativeBridge && window.UtkioNativeBridge.onFinalSpeech) window.UtkioNativeBridge.onFinalSpeech('" + finalTranscript + "');");
+                            String text = escapeJson(matches.get(0));
+                            dispatchCustomEvent("stt-final", "{\"text\":\"" + text + "\"}");
                         }
                     }
 
                     @Override
                     public void onPartialResults(Bundle partialResults) {
-                        ArrayList<String> partials = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                        ArrayList<String> partials = partialResults.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION);
                         if (partials != null && !partials.isEmpty()) {
-                            String interim = partials.get(0).replace("'", "\\'");
-                            dispatchJs("if (window.UtkioNativeBridge && window.UtkioNativeBridge.onPartialSpeech) window.UtkioNativeBridge.onPartialSpeech('" + interim + "');");
+                            String text = escapeJson(partials.get(0));
+                            dispatchCustomEvent("stt-partial", "{\"text\":\"" + text + "\"}");
                         }
                     }
-
-                    @Override
-                    public void onEvent(int eventType, Bundle params) {}
                 });
             }
         });
     }
 
+    // Inject JS->Java bridge on window.UtkioNativeBridge
     private void injectNativeBridge() {
-        WebView webView = getBridge().getWebView();
-        if (webView != null) {
-            webView.addJavascriptInterface(new UtkioNativeInterface(), "UtkioNativeBridge");
-        }
-    }
-
-    private void dispatchJs(String jsCode) {
         mainHandler.post(() -> {
-            WebView webView = getBridge().getWebView();
-            if (webView != null) {
-                webView.evaluateJavascript(jsCode, null);
+            try {
+                WebView webView = getBridge().getWebView();
+                if (webView != null) {
+                    webView.addJavascriptInterface(new UtkioNativeInterface(), "UtkioNativeBridge");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
     }
 
+    // INDUSTRY PATTERN: Java to JS via DOM CustomEvent (decoupled and reliable)
+    private void dispatchCustomEvent(String eventName, String jsonDetail) {
+        String js = "window.dispatchEvent(new CustomEvent('" + eventName + "', "
+                  + "{ detail: " + jsonDetail + " }));";
+        mainHandler.post(() -> {
+            try {
+                WebView webView = getBridge().getWebView();
+                if (webView != null) {
+                    webView.evaluateJavascript(js, null);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    // JS to Java Interface (JS calls these)
     public class UtkioNativeInterface {
         @JavascriptInterface
         public void startListening() {
             mainHandler.post(() -> {
                 if (speechRecognizer != null && speechRecognizerIntent != null) {
-                    try {
-                        speechRecognizer.startListening(speechRecognizerIntent);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    try { speechRecognizer.startListening(speechRecognizerIntent); }
+                    catch (Exception e) { e.printStackTrace(); }
                 }
             });
         }
@@ -168,21 +180,18 @@ public class MainActivity extends BridgeActivity {
         public void stopListening() {
             mainHandler.post(() -> {
                 if (speechRecognizer != null) {
-                    try {
-                        speechRecognizer.stopListening();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    try { speechRecognizer.stopListening(); }
+                    catch (Exception e) { e.printStackTrace(); }
                 }
             });
         }
 
+        // speakChunk takes text + rate; completion fires "tts-done" CustomEvent
         @JavascriptInterface
         public void speakChunk(String text, float rate) {
             mainHandler.post(() -> {
                 if (textToSpeech != null && isTtsReady && text != null && !text.trim().isEmpty()) {
-                    float speechRate = rate > 0 ? rate : 1.35f;
-                    textToSpeech.setSpeechRate(speechRate);
+                    textToSpeech.setSpeechRate(rate > 0 ? rate : 1.35f);
                     String utteranceId = "utt_" + System.currentTimeMillis();
                     textToSpeech.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId);
                 }
@@ -194,20 +203,24 @@ public class MainActivity extends BridgeActivity {
             mainHandler.post(() -> {
                 if (textToSpeech != null && textToSpeech.isSpeaking()) {
                     textToSpeech.stop();
+                    dispatchCustomEvent("tts-stopped", "{}");
                 }
             });
         }
     }
 
+    private String escapeJson(String text) {
+        return text.replace("\\", "\\\\")
+                   .replace("\"", "\\\"")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
+    }
+
     @Override
     public void onDestroy() {
-        if (speechRecognizer != null) {
-            speechRecognizer.destroy();
-        }
-        if (textToSpeech != null) {
-            textToSpeech.stop();
-            textToSpeech.shutdown();
-        }
+        if (speechRecognizer != null) speechRecognizer.destroy();
+        if (textToSpeech != null) { textToSpeech.stop(); textToSpeech.shutdown(); }
         super.onDestroy();
     }
 }

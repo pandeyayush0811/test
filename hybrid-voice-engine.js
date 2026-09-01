@@ -47,7 +47,8 @@ export class HybridVoiceEngine {
     this.apiKey = options.apiKey || '';
     this.model = options.model || 'gemini-3.1-flash-lite';
     this.inputMode = options.inputMode || 'webspeech'; // 'webspeech' (0ms text) | 'multimodal'
-    this.ttsEngine = options.ttsEngine || 'android_native'; // 'android_native' | 'google_indian' | 'gemini_native' | 'browser_tts'
+    // Auto-detect: use Android native bridge if available, else fall back to browser TTS
+    this.ttsEngine = options.ttsEngine || (window.UtkioNativeBridge ? 'android_native' : 'browser_tts');
     this.sttLang = options.sttLang || 'en-IN';
     this.googleLang = options.googleLang || 'en-IN';
     this.speechRate = options.speechRate || 1.35;
@@ -107,21 +108,45 @@ export class HybridVoiceEngine {
   setSelectedVoice(voice) { this.selectedVoice = voice; }
 
   initNativeAndroidBridge() {
-    // Check if running inside Android Native Capacitor App with UtkioNativeBridge
-    if (window.UtkioNativeBridge) {
-      window.UtkioNativeBridge.onPartialSpeech = (interimText) => {
-        if (interimText) this.onInterimSpeech(interimText);
-      };
-      window.UtkioNativeBridge.onFinalSpeech = (finalText) => {
-        if (finalText) {
-          this.userFinishedTime = performance.now();
-          const sttDuration = Math.round(this.userFinishedTime - this.recStartTime);
-          this.onMetricsUpdate({ sttLatency: sttDuration });
-          this.onFinalSpeech(finalText.trim(), false);
-          this.sendTextToGemini(finalText.trim());
-        }
-      };
-    }
+    // INDUSTRY PATTERN: Listen for DOM CustomEvents fired by Java via evaluateJavascript
+    // This is decoupled, reliable, and works regardless of bridge injection timing.
+
+    window.addEventListener('stt-partial', (e) => {
+      const text = e.detail && e.detail.text;
+      if (text) this.onInterimSpeech(text);
+    });
+
+    window.addEventListener('stt-final', (e) => {
+      const text = e.detail && e.detail.text;
+      if (text) {
+        this.userFinishedTime = performance.now();
+        const sttDuration = Math.round(this.userFinishedTime - this.recStartTime);
+        this.onMetricsUpdate({ sttLatency: sttDuration });
+        this.onFinalSpeech(text.trim(), false);
+        this.sendTextToGemini(text.trim());
+      }
+    });
+
+    window.addEventListener('stt-error', (e) => {
+      const code = e.detail && e.detail.code;
+      console.warn('[STT] Native error code:', code);
+      this.isListening = false;
+      this.onStatusChange('IDLE');
+      if (code !== 7 && code !== 6) { // 6=no-speech, 7=no-match — not user errors
+        this.onError(`Native STT Error (code ${code}). Ensure mic permission is granted.`);
+      }
+    });
+
+    // TTS done fires when Java TTS utterance finishes — advance sentence queue
+    window.addEventListener('tts-done', () => {
+      this.playNextInSentenceQueue();
+    });
+
+    window.addEventListener('tts-stopped', () => {
+      this.isSpeakingQueue = false;
+      this.sentenceQueue = [];
+      this.onStatusChange('IDLE');
+    });
   }
 
   clearHistory() {
@@ -589,8 +614,14 @@ export class HybridVoiceEngine {
     this.isSpeakingQueue = true;
     const currentSentence = this.sentenceQueue.shift();
 
-    if (this.ttsEngine === 'android_native' && window.UtkioNativeBridge && window.UtkioNativeBridge.speakChunk) {
+    const bridgeAvailable = window.UtkioNativeBridge && window.UtkioNativeBridge.speakChunk;
+
+    if (this.ttsEngine === 'android_native' && bridgeAvailable) {
       this.playNativeAndroidSentence(currentSentence);
+    } else if (this.ttsEngine === 'android_native' && !bridgeAvailable) {
+      // Bridge not available (browser preview / WebView not yet bridged) — fallback to browser TTS
+      console.warn('[TTS] android_native selected but UtkioNativeBridge not found. Falling back to browser TTS.');
+      this.playBrowserSentence(currentSentence);
     } else if (this.ttsEngine === 'google_indian') {
       this.playGoogleSentence(currentSentence);
     } else {
@@ -608,9 +639,10 @@ export class HybridVoiceEngine {
     }
     this.onStatusChange('SPEAKING');
 
-    window.UtkioNativeBridge.speakChunk(sentence, parseFloat(this.speechRate) || 1.35, () => {
-      this.playNextInSentenceQueue();
-    });
+    // INDUSTRY PATTERN: speakChunk takes text + rate only.
+    // Completion is signalled by 'tts-done' CustomEvent from Java (not a callback param).
+    window.UtkioNativeBridge.speakChunk(sentence, parseFloat(this.speechRate) || 1.35);
+    // playNextInSentenceQueue() is called by the 'tts-done' event listener above.
   }
 
   playGoogleSentence(sentence) {

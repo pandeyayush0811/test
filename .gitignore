@@ -4,6 +4,7 @@ build/
 android/app/build/
 android/build/
 android/.gradle/
+android/local.properties
 *.log
 .DS_Store
 www/
