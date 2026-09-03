@@ -8,3 +8,4 @@ android/local.properties
 *.log
 .DS_Store
 www/
+*.apk

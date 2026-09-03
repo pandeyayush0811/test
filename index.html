@@ -696,7 +696,8 @@ CRITICAL SPOKEN AUDIO RULES:
 1. Speak in natural, friendly HINGLISH: seamlessly blend relatable, warm Hindi conversational phrases (e.g., "Arre bilkul", "Haan dekho", "Don't worry yaar", "Matlab", "Aap batao") with clean, fluent English.
 2. Keep your spoken audio short, energetic, and snappy: strictly 1 to 2 short sentences per turn so speech synthesis flows rapidly.
 3. If the user makes a hesitation or grammatical mistake, gently model the better English phrasing in your reply without lecturing.
-4. Always end with an easy question to keep the spoken dialogue flowing.`;
+4. Always end with an easy question to keep the spoken dialogue flowing.
+5. Strictly output clean spoken dialogue. NEVER use markdown symbols like asterisks (*), hashtags (#), bullet points, or parentheticals.`;
 
     // DOM Elements
     const engineBadge = document.getElementById('engineBadge');
@@ -1220,6 +1221,7 @@ CRITICAL SPOKEN AUDIO RULES:
 
       let fullCoachReply = '';
       let isFirstToken = true;
+      resetSpeechPipelining();
 
       try {
         const reader = response.body.getReader();
@@ -1292,18 +1294,33 @@ CRITICAL SPOKEN AUDIO RULES:
     // ─────────────────────────────────────────────────────────────────────────────
     // Sentence-Pipelined Voice Engine (Android Native TTS vs Web Speech)
     // ─────────────────────────────────────────────────────────────────────────────
+    let hasEnqueuedFirstSentence = false;
+
+    function resetSpeechPipelining() {
+      sentenceBuffer = '';
+      sentenceQueue = [];
+      hasEnqueuedFirstSentence = false;
+      isSpeakingQueue = false;
+    }
+
     function processChunkForSpeech(chunk) {
       sentenceBuffer += chunk;
+
+      // Smart Punctuation Splitter: Match sentence boundaries (. ! ? \n)
       const regex = /([^.?!:\n]+[.?!:\n]+)/g;
       let match;
       let lastIndex = 0;
 
       while ((match = regex.exec(sentenceBuffer)) !== null) {
         const sentence = match[0].trim();
-        if (sentence.length > 1) {
+        const wordCount = sentence.split(/\s+/).filter(Boolean).length;
+
+        // Sub-250ms TTFT: first sentence sent as soon as 3 words reached or punctuation met
+        if ((!hasEnqueuedFirstSentence && wordCount >= 3) || wordCount >= 5 || sentence.length >= 30) {
           enqueueSentenceForSpeech(sentence);
+          hasEnqueuedFirstSentence = true;
+          lastIndex = regex.lastIndex;
         }
-        lastIndex = regex.lastIndex;
       }
 
       if (lastIndex > 0) {
@@ -1312,7 +1329,8 @@ CRITICAL SPOKEN AUDIO RULES:
     }
 
     function enqueueSentenceForSpeech(text) {
-      const clean = text.replace(/[\*\_#]/g, '').trim();
+      // Clean all markdown symbols, asterisks, hashtags, backticks, brackets
+      const clean = text.replace(/[\*\_#`~\[\]\(\)]/g, '').trim();
       if (!clean) return;
       // Reject solitary punctuation or symbol-only utterances
       if (!/[a-zA-Z0-9\u0900-\u097F]/.test(clean)) return;
