@@ -20,7 +20,8 @@ const testFiles = [
   path.join(__dirname, 'exhaustive_ui_adversarial.test.js'),
   path.join(__dirname, 'extreme_adversarial_matrix.test.js'),
   path.join(__dirname, 'hardcore_adversarial_matrix.test.js'),
-  path.join(__dirname, 'deep_edge_cases_and_break_attempts.test.js')
+  path.join(__dirname, 'deep_edge_cases_and_break_attempts.test.js'),
+  path.join(__dirname, 'cartesia_voice_engine.test.js')
 ];
 
 const nodeBinary = process.execPath;

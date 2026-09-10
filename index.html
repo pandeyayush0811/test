@@ -487,6 +487,8 @@
       padding: 24px;
       width: 100%;
       max-width: 400px;
+      max-height: 88vh;
+      overflow-y: auto;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
       border: 1px solid var(--line);
     }
@@ -646,19 +648,53 @@
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-card">
       <h3>Voice &amp; AI Settings</h3>
-      <p>Choose your AI Coach neural voice and configure your Gemini API Key.</p>
+      <p>Configure your AI Coach voice engine and API Keys.</p>
       
       <div class="modal-input-wrap">
-        <label class="modal-label" for="modalVoiceSelect">Coach Voice (Microsoft Edge Neural)</label>
-        <select id="modalVoiceSelect" class="modal-input">
-          <option value="en-IN-NeerjaNeural">🇮🇳 Neerja (Indian English - Female)</option>
-          <option value="hi-IN-SwaraNeural">🇮🇳 Swara (Hindi / Hinglish - Female)</option>
-          <option value="en-IN-PrabhatNeural">🇮🇳 Prabhat (Indian English - Male)</option>
-          <option value="hi-IN-MadhurNeural">🇮🇳 Madhur (Hindi / Hinglish - Male)</option>
-          <option value="en-US-JennyNeural">🇺🇸 Jenny (US English - Female)</option>
-          <option value="en-US-GuyNeural">🇺🇸 Guy (US English - Male)</option>
-          <option value="en-GB-SoniaNeural">🇬🇧 Sonia (British English - Female)</option>
+        <label class="modal-label" for="modalTtsEngineSelect">TTS Voice Engine</label>
+        <select id="modalTtsEngineSelect" class="modal-input">
+          <option value="cartesia" selected>⚡ Cartesia Sonic (Ultra-Realistic AI Voice)</option>
+          <option value="edge">🌐 Microsoft Edge Neural (Free Cloud)</option>
+          <option value="native">📱 Device Native TTS (0ms Local)</option>
         </select>
+      </div>
+
+      <!-- Cartesia Sonic Settings -->
+      <div id="cartesiaConfigGroup">
+        <div class="modal-input-wrap">
+          <label class="modal-label" for="modalCartesiaKeyInput">Cartesia API Key</label>
+          <input type="password" id="modalCartesiaKeyInput" class="modal-input" placeholder="Paste Cartesia API key...">
+          <div style="font-size:0.72rem; color:var(--ink-dim); margin-top:4px;">
+            Free key &amp; credits from <a href="https://play.cartesia.ai" target="_blank" style="color:var(--accent-orange); text-decoration:none; font-weight:600;">play.cartesia.ai</a>
+          </div>
+        </div>
+
+        <div class="modal-input-wrap">
+          <label class="modal-label" for="modalCartesiaVoiceSelect">Cartesia Sonic Voice</label>
+          <select id="modalCartesiaVoiceSelect" class="modal-input">
+            <option value="db6b0ed5-d5d3-463d-ae85-518a07d3c2b4" selected>👩 Gemma (Warm &amp; Friendly Female)</option>
+            <option value="69267136-1bdc-4103-a10e-5c192337433a">👩 Jacqueline (Conversational Female)</option>
+            <option value="a0e99841-438c-4a64-b679-ae501e7d6091">👨 Daniel (Natural Conversational Male)</option>
+            <option value="ee7ea9f8-c0c1-498e-9279-764d6b56d189">👨 Corey (Approachable Teacher Male)</option>
+            <option value="f786b574-daa5-4673-aa0c-cbe3e8534c02">👨 Archie (Energetic Casual Male)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Microsoft Edge Neural Settings -->
+      <div id="edgeConfigGroup" style="display:none;">
+        <div class="modal-input-wrap">
+          <label class="modal-label" for="modalVoiceSelect">Coach Voice (Microsoft Edge Neural)</label>
+          <select id="modalVoiceSelect" class="modal-input">
+            <option value="en-IN-NeerjaNeural">🇮🇳 Neerja (Indian English - Female)</option>
+            <option value="hi-IN-SwaraNeural">🇮🇳 Swara (Hindi / Hinglish - Female)</option>
+            <option value="en-IN-PrabhatNeural">🇮🇳 Prabhat (Indian English - Male)</option>
+            <option value="hi-IN-MadhurNeural">🇮🇳 Madhur (Hindi / Hinglish - Male)</option>
+            <option value="en-US-JennyNeural">🇺🇸 Jenny (US English - Female)</option>
+            <option value="en-US-GuyNeural">🇺🇸 Guy (US English - Male)</option>
+            <option value="en-GB-SoniaNeural">🇬🇧 Sonia (British English - Female)</option>
+          </select>
+        </div>
       </div>
 
       <div class="modal-input-wrap">
@@ -716,6 +752,11 @@ CRITICAL SPOKEN AUDIO RULES:
     const modalKeyInput = document.getElementById('modalKeyInput');
     const modalVoiceSelect = document.getElementById('modalVoiceSelect');
     const modalRateSelect = document.getElementById('modalRateSelect');
+    const modalTtsEngineSelect = document.getElementById('modalTtsEngineSelect');
+    const cartesiaConfigGroup = document.getElementById('cartesiaConfigGroup');
+    const modalCartesiaKeyInput = document.getElementById('modalCartesiaKeyInput');
+    const modalCartesiaVoiceSelect = document.getElementById('modalCartesiaVoiceSelect');
+    const edgeConfigGroup = document.getElementById('edgeConfigGroup');
     const modalSaveBtn = document.getElementById('modalSaveBtn');
     const modalCloseBtn = document.getElementById('modalCloseBtn');
 
@@ -724,6 +765,9 @@ CRITICAL SPOKEN AUDIO RULES:
       return typeof window.UtkioNativeBridge !== 'undefined' ? window.UtkioNativeBridge : null;
     }
     let apiKey = localStorage.getItem('utkio_gemini_api_key') || '';
+    let ttsEngine = localStorage.getItem('utkio_tts_engine') || 'cartesia';
+    let cartesiaApiKey = localStorage.getItem('utkio_cartesia_api_key') || '';
+    let selectedCartesiaVoice = localStorage.getItem('utkio_cartesia_voice') || 'db6b0ed5-d5d3-463d-ae85-518a07d3c2b4';
     let selectedVoice = localStorage.getItem('utkio_edge_voice') || 'en-IN-NeerjaNeural';
     let selectedRate = localStorage.getItem('utkio_edge_rate') || '+35%';
     let state = 'IDLE'; // IDLE | LISTENING | THINKING | SPEAKING
@@ -760,14 +804,23 @@ CRITICAL SPOKEN AUDIO RULES:
       }
     });
 
+    function toggleTtsSettingsVisibility() {
+      const current = modalTtsEngineSelect ? modalTtsEngineSelect.value : ttsEngine;
+      if (cartesiaConfigGroup) cartesiaConfigGroup.style.display = current === 'cartesia' ? 'block' : 'none';
+      if (edgeConfigGroup) edgeConfigGroup.style.display = current === 'edge' ? 'block' : 'none';
+    }
+
     function initEngineMode() {
       const bridge = getNativeBridge();
+      const ttsDesc = ttsEngine === 'cartesia'
+        ? (cartesiaApiKey ? 'Cartesia Sonic' : 'Cartesia (Key needed)')
+        : (ttsEngine === 'edge' ? 'Edge Neural' : 'Native TTS');
       if (bridge) {
-        engineLabel.textContent = 'Android Native Bridge Active (0ms On-Device)';
+        engineLabel.textContent = `Android Native Bridge Active (${ttsDesc})`;
         try { bridge.setVoiceConfig(selectedVoice, selectedRate); } catch (e) {}
         setupAndroidNativeListeners();
       } else {
-        engineLabel.textContent = 'Web Engine Mode (Browser Preview)';
+        engineLabel.textContent = `Web Preview (${ttsDesc})`;
         initWebSpeechFallback();
       }
     }
@@ -921,9 +974,24 @@ CRITICAL SPOKEN AUDIO RULES:
     function setupEventListeners() {
       settingsBtn.addEventListener('click', openSettingsModal);
       modalCloseBtn.addEventListener('click', closeSettingsModal);
+      if (modalTtsEngineSelect) {
+        modalTtsEngineSelect.addEventListener('change', toggleTtsSettingsVisibility);
+      }
       modalSaveBtn.addEventListener('click', () => {
         apiKey = modalKeyInput.value.trim();
         localStorage.setItem('utkio_gemini_api_key', apiKey);
+        if (modalTtsEngineSelect) {
+          ttsEngine = modalTtsEngineSelect.value;
+          localStorage.setItem('utkio_tts_engine', ttsEngine);
+        }
+        if (modalCartesiaKeyInput) {
+          cartesiaApiKey = modalCartesiaKeyInput.value.trim();
+          localStorage.setItem('utkio_cartesia_api_key', cartesiaApiKey);
+        }
+        if (modalCartesiaVoiceSelect) {
+          selectedCartesiaVoice = modalCartesiaVoiceSelect.value;
+          localStorage.setItem('utkio_cartesia_voice', selectedCartesiaVoice);
+        }
         if (modalVoiceSelect) {
           selectedVoice = modalVoiceSelect.value;
           localStorage.setItem('utkio_edge_voice', selectedVoice);
@@ -936,6 +1004,7 @@ CRITICAL SPOKEN AUDIO RULES:
         if (bridge) {
           try { bridge.setVoiceConfig(selectedVoice, selectedRate); } catch (e) {}
         }
+        initEngineMode();
         closeSettingsModal();
         statusText.textContent = 'Settings saved. Tap mic to talk.';
       });
@@ -956,10 +1025,18 @@ CRITICAL SPOKEN AUDIO RULES:
 
     function openSettingsModal() {
       modalKeyInput.value = apiKey;
+      if (modalTtsEngineSelect) modalTtsEngineSelect.value = ttsEngine;
+      if (modalCartesiaKeyInput) modalCartesiaKeyInput.value = cartesiaApiKey;
+      if (modalCartesiaVoiceSelect) modalCartesiaVoiceSelect.value = selectedCartesiaVoice;
       if (modalVoiceSelect) modalVoiceSelect.value = selectedVoice;
       if (modalRateSelect) modalRateSelect.value = selectedRate;
+      toggleTtsSettingsVisibility();
       settingsModal.classList.add('open');
-      modalKeyInput.focus();
+      if (!apiKey) {
+        modalKeyInput.focus();
+      } else if (ttsEngine === 'cartesia' && !cartesiaApiKey) {
+        modalCartesiaKeyInput.focus();
+      }
     }
 
     function closeSettingsModal() {
@@ -1151,13 +1228,30 @@ CRITICAL SPOKEN AUDIO RULES:
         </div>
         <div class="line-col">
           <div class="line model">...</div>
-          <div class="line-meta" style="display:none;">⚡ <span class="ttft-val">0</span>ms</div>
+          <div class="line-meta" style="display:none;">
+            <span>⚡ LLM: <span class="ttft-val">0</span>ms</span>
+            <span class="tts-meta" style="display:none; margin-left:6px;">| 🔊 <span class="tts-engine-label">TTS</span>: <span class="tts-val">0</span>ms</span>
+          </div>
         </div>
       `;
       transcript.appendChild(row);
       currentModelRow = row;
       scrollTranscript();
       return row;
+    }
+
+    function updateTtsBadge(ms, label) {
+      if (!currentModelRow) return;
+      const metaEl = currentModelRow.querySelector('.line-meta');
+      const ttsMeta = currentModelRow.querySelector('.tts-meta');
+      const ttsVal = currentModelRow.querySelector('.tts-val');
+      const ttsLabel = currentModelRow.querySelector('.tts-engine-label');
+      if (metaEl) metaEl.style.display = 'flex';
+      if (ttsMeta) {
+        ttsMeta.style.display = 'inline';
+        if (ttsLabel && label) ttsLabel.textContent = label;
+        if (ttsVal) ttsVal.textContent = ms != null ? ms : '0';
+      }
     }
 
     function scrollTranscript() {
@@ -1422,6 +1516,60 @@ CRITICAL SPOKEN AUDIO RULES:
       });
     }
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Cartesia Sonic Studio TTS Client (REST API / Ultra-Realistic AI Voice)
+    // ─────────────────────────────────────────────────────────────────────────────
+    async function generateCartesiaAudio(text, voiceId, rateStr) {
+      if (!cartesiaApiKey) {
+        throw new Error('Cartesia API Key is not configured.');
+      }
+      const clean = text.replace(/[\*\_#`~\[\]\(\)]/g, '').trim();
+      if (!clean) return null;
+
+      let speed = 1.0;
+      if (rateStr === '+15%') speed = 1.15;
+      else if (rateStr === '+35%') speed = 1.25;
+      else if (rateStr === '+50%') speed = 1.35;
+
+      const ttsStart = performance.now();
+      const response = await fetch('https://api.cartesia.ai/tts/bytes', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': cartesiaApiKey,
+          'Cartesia-Version': '2024-06-10',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model_id: 'sonic-english',
+          transcript: clean,
+          voice: {
+            mode: 'id',
+            id: voiceId || selectedCartesiaVoice
+          },
+          output_format: {
+            container: 'wav',
+            encoding: 'pcm_s16le',
+            sample_rate: 24000
+          },
+          generation_config: {
+            speed: speed
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(`Cartesia error (${response.status}): ${errJson.message || response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const ttsMs = Math.round(performance.now() - ttsStart);
+      return {
+        audioUrl: URL.createObjectURL(blob),
+        ttsMs: ttsMs
+      };
+    }
+
     function playNextSentence() {
       if (!sentenceQueue.length) {
         isSpeakingQueue = false;
@@ -1446,18 +1594,54 @@ CRITICAL SPOKEN AUDIO RULES:
       const currentUtteranceId = 'utt_' + utteranceCounter;
 
       const bridge = getNativeBridge();
-      if (bridge) {
+
+      // Priority 0: Explicit Native Engine Selected on Android Bridge
+      if (ttsEngine === 'native' && bridge) {
         try {
+          updateTtsBadge(0, 'Native');
           bridge.speakText(text, currentUtteranceId);
         } catch (err) {
           console.warn('Native speakText failed:', err);
           playNextSentence();
         }
-      } else {
-        // Browser Preview Mode: Generate Edge Audio Stream
+        return;
+      }
+
+      // Priority 1: Cartesia Sonic TTS (When engine is Cartesia and key is configured)
+      if (ttsEngine === 'cartesia' && cartesiaApiKey) {
+        generateCartesiaAudio(text, selectedCartesiaVoice, selectedRate)
+          .then(res => {
+            if (!isSpeakingQueue || !res) return;
+            updateTtsBadge(res.ttsMs, 'Cartesia');
+            const audio = new Audio(res.audioUrl);
+            currentAudioObject = audio;
+            audio.onended = () => {
+              currentAudioObject = null;
+              playNextSentence();
+            };
+            audio.onerror = (e) => {
+              console.warn('Cartesia playback error, falling back to Edge/Native:', e);
+              currentAudioObject = null;
+              fallbackPlaySentence(text, currentUtteranceId);
+            };
+            audio.play().catch(e => {
+              console.warn('Cartesia play() rejected, falling back to Edge/Native:', e);
+              fallbackPlaySentence(text, currentUtteranceId);
+            });
+          })
+          .catch(err => {
+            console.warn('Cartesia generation failed, falling back to Edge/Native:', err);
+            fallbackPlaySentence(text, currentUtteranceId);
+          });
+        return;
+      }
+
+      // Priority 2: Microsoft Edge Neural TTS (Direct Bing WebSocket)
+      if (ttsEngine === 'edge' || (ttsEngine === 'cartesia' && !cartesiaApiKey)) {
         generateEdgeTTSAudio(text, selectedVoice, selectedRate)
           .then(audioUrl => {
             if (!isSpeakingQueue) return;
+            updateTtsBadge(null, 'Edge');
             const audio = new Audio(audioUrl);
             currentAudioObject = audio;
             audio.onended = () => {
@@ -1474,7 +1658,11 @@ CRITICAL SPOKEN AUDIO RULES:
             console.warn('Browser Edge TTS fallback:', err);
             fallbackPlaySentence(text, currentUtteranceId);
           });
+        return;
       }
+
+      // Fallback
+      fallbackPlaySentence(text, currentUtteranceId);
     }
 
     function fallbackPlaySentence(text, currentUtteranceId) {

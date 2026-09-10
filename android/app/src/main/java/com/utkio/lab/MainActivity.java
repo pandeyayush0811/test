@@ -89,8 +89,8 @@ public class MainActivity extends BridgeActivity {
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 updateNativeTtsVoice(selectedVoice);
-                textToSpeech.setSpeechRate(1.15f); // Natural human conversational pace
-                textToSpeech.setPitch(1.02f);
+                textToSpeech.setSpeechRate(1.35f); // Snappy conversational dialogue
+                textToSpeech.setPitch(1.05f);
                 textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String utteranceId) {}
                     @Override
